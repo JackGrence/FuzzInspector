@@ -22,14 +22,41 @@ from collections import OrderedDict as OD
 class VulnPath:
     def __init__(self, elf, addr):
         self.r2 = r2pipe.open(elf)
+        self.r2.cmd('aa')
         self.r2.cmd('aac')
         self.r2.cmd(addr)
         self.addr = int(addr, 16)
         self.block_base = int(self.r2.cmd('ab | grep ^addr').split(' ')[1], 16)
-        self.func_base = json.loads(self.r2.cmd('afij'))[0]['offset']
+        func_info = json.loads(self.r2.cmd('afij'))[0]
+        self.func_base = func_info['offset']
+        self.func_name = func_info['name']
 
     def __del__(self):
         self.r2.quit()
+
+    def _find_callers(self, addr, callers, history):
+        xrefs = json.loads(self.r2.cmd('axtj {}'.format(addr)))
+        if not xrefs:
+            return OD([])
+        if addr in history:
+            return OD([('LOOP', {})])
+        childs = []
+        for caller in xrefs:
+            if 'fcn_name' not in caller:
+                continue
+            desc = '{}: 0x{:x}'.format(caller['fcn_name'], caller['from'])
+            child = self._find_callers(caller['fcn_addr'],
+                    callers, history + [addr])
+            childs.append((desc, child))
+            callers.add(caller['fcn_name'])
+        return OD(childs)
+
+    def _draw_call_path(self):
+        callers = {self.func_name}
+        tree = {self.func_name: self._find_callers(self.func_base, callers, [])}
+        tr = LeftAligned()
+        print(tr(tree))
+        print(callers)
 
     def analyze(self):
         # parse function block
@@ -41,6 +68,7 @@ class VulnPath:
             if 'fail' in block:
                 call_maps.setdefault(block['fail'], []).append(('f', block['addr']))
         self._draw_path(call_maps, self.block_base)
+        self._draw_call_path()
 
     def _draw_path(self, call_maps, target):
         tree = {hex(target): self._build_tree(call_maps, target, [])}
