@@ -20,18 +20,18 @@ from collections import OrderedDict as OD
 #   out of bound RW to arbitrary RW
 
 class VulnPath:
-    def __init__(self, elf):
+    def __init__(self, elf, addr):
         self.r2 = r2pipe.open(elf)
         self.r2.cmd('aac')
+        self.r2.cmd(addr)
+        self.addr = int(addr, 16)
+        self.block_base = int(self.r2.cmd('ab | grep ^addr').split(' ')[1], 16)
+        self.func_base = json.loads(self.r2.cmd('afij'))[0]['offset']
 
     def __del__(self):
         self.r2.quit()
 
-    def analyze(self, addr):
-        self.r2.cmd(addr)
-        addr = int(addr, 16)
-        block_addr = int(self.r2.cmd('ab | grep ^addr').split(' ')[1], 16)
-        func_base = json.loads(self.r2.cmd('afij'))[0]['offset']
+    def analyze(self):
         # parse function block
         func_blocks = json.loads(self.r2.cmd('abj'))
         call_maps = {}
@@ -40,7 +40,7 @@ class VulnPath:
                 call_maps.setdefault(block['jump'], []).append(('j', block['addr']))
             if 'fail' in block:
                 call_maps.setdefault(block['fail'], []).append(('f', block['addr']))
-        self._draw_path(call_maps, block_addr)
+        self._draw_path(call_maps, self.block_base)
 
     def _draw_path(self, call_maps, target):
         tree = {hex(target): self._build_tree(call_maps, target, [])}
@@ -66,8 +66,8 @@ def main():
     parser.add_argument('vuln_addr', type=str)
     
     args = parser.parse_args()
-    vuln_path = VulnPath(args.vuln_elf)
-    vuln_path.analyze(args.vuln_addr)
+    vuln_path = VulnPath(args.vuln_elf, args.vuln_addr)
+    vuln_path.analyze()
 
 if __name__ == '__main__':
     main()
