@@ -43,17 +43,19 @@ class VulnPath:
         self._draw_path(call_maps, block_addr)
 
     def _draw_path(self, call_maps, target):
-        tree = {hex(target): self._build_tree(call_maps, target)}
+        tree = {hex(target): self._build_tree(call_maps, target, [])}
         tr = LeftAligned()
         print(tr(tree))
 
-    def _build_tree(self, call_maps, target):
+    def _build_tree(self, call_maps, target, history):
+        if target in history:
+            return OD([('LOOP', {})])
         if target not in call_maps:
             return OD([])
         childs = []
         for cond, caller in call_maps[target]:
             desc = '{} 0x{:x}'.format(cond, caller)
-            child = self._build_tree(call_maps, caller)
+            child = self._build_tree(call_maps, caller, history + [target])
             childs.append((desc, child))
         return OD(childs)
 
