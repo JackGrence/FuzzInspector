@@ -1,8 +1,8 @@
 #!/bin/sh
-if [ ! -f 'files_cache' ]; then
-	files=`find . -exec file {} \; | grep -i elf | awk -F":" '{print $1}' | tee files_cache`
+if [ ! -f 'files.cache' ]; then
+	files=`find . -exec file {} \; | grep -i elf | awk -F":" '{print $1}' | tee files.cache`
 else
-	files=`cat files_cache`
+	files=`cat files.cache`
 fi
 for f in $files
 do
