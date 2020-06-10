@@ -48,19 +48,19 @@ class VulnPath:
             child = self._find_callers(caller['fcn_addr'],
                     callers, history + [addr])
             childs.append((desc, child))
-            callers.add(caller['fcn_name'])
+            callers.add(caller['fcn_addr'])
         return OD(childs)
 
     def _draw_call_path(self):
-        callers = {self.func_name}
+        callers = {self.func_base}
         tree = {self.func_name: self._find_callers(self.func_base, callers, [])}
         tr = LeftAligned()
         # TODO: quickly
-        symbols_str = ''
+        symbols = []
         for func in callers:
-            if 'sym' in func:
-                symbols_str += func.replace('sym.', ' ')
-        return tr(tree), symbols_str
+            symbol_list = self.r2.cmd('isq | grep {:x} | awk \'{{print $3}}\''.format(func))
+            symbols += symbol_list.split('\n')[:-1]
+        return tr(tree), ' '.join(symbols)
 
     def analyze(self, is_call_stack, is_block_path, is_vuln_func):
         # parse function block
