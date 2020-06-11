@@ -1,6 +1,7 @@
 import r2pipe
 import argparse
 import json
+import sys
 from pathlib import Path
 from asciitree import LeftAligned
 from collections import OrderedDict as OD
@@ -21,13 +22,31 @@ from collections import OrderedDict as OD
 #   out of bound RW to arbitrary RW
 
 class VulnBin:
-    def __init__(self, elf, addr_list):
-        self.r2 = r2pipe.open(elf)
+    def __init__(self, elf_path, addr_list):
+        self.vuln_path = {}
+        self.path = elf_path
+        self.name = str(Path(elf_path).name)
+        self.addr_list = addr_list
+        self.r2 = r2pipe.open(self.path)
         self.r2.cmd('aa')
         self.r2.cmd('aac')
+        self.set_vuln_path(self.addr_list)
+
+    def filter_vuln_by_symbol(self, vuln_func):
+        # find vuln function address
+        result = []
+        for func in vuln_func:
+            func_info = json.loads(self.r2.cmd('afij sym.imp.{}'.format(func)))
+            if func_info:
+                if func_info[0]['offset'] != 0:
+                    result.append(func_info[0]['offset'])
+        return result
+
+    def set_vuln_path(self, addr_list):
+        self.addr_list = addr_list
         self.vuln_path = {}
-        for addr in addr_list:
-            self.vuln_path[addr] = VulnPath(self.r2, int(addr, 16))
+        for addr in self.addr_list:
+            self.vuln_path[addr] = VulnPath(self.r2, addr)
 
     def print_block_path(self):
         for addr, vuln_path in self.vuln_path.items():
@@ -42,6 +61,13 @@ class VulnBin:
         for addr, vuln_path in self.vuln_path.items():
             tree, symbols = vuln_path.call_stack()
             print(symbols)
+
+    def vuln_func(self):
+        result = set()
+        for addr, vuln_path in self.vuln_path.items():
+            tree, symbols = vuln_path.call_stack()
+            result |= set(symbols.split())
+        return result
 
     def __del__(self):
         self.r2.quit()
@@ -81,7 +107,7 @@ class VulnPath:
         # TODO: quickly
         symbols = []
         for func in callers:
-            symbol_list = self.r2.cmd('isq | grep {:x} | awk \'{{print $3}}\''.format(func))
+            symbol_list = self.r2.cmd('iEq | grep {:x} | awk \'{{print $3}}\''.format(func))
             symbols += symbol_list.split('\n')[:-1]
         return tr(tree), ' '.join(symbols)
 
@@ -113,6 +139,71 @@ class VulnPath:
         return OD(childs)
 
 
+class ExploitPath:
+    def __init__(self, rootfs, targets, vuln_bin):
+        self.rootfs = rootfs
+        self.targets = targets
+        self.vuln_bin = vuln_bin
+        self.binaries = {}
+        self.binaries[vuln_bin.name] = vuln_bin
+
+    # Return vulnerable export symbol in elf
+    # And asciitree
+    def _find_affected(self, elf, vuln_bin):
+        elf_libs = json.loads(elf.r2.cmd('ilj'))
+        tree = []
+        vuln_addr = []
+        for lib_name in elf_libs:
+            if lib_name == vuln_bin.name:
+                elf_vuln_addr = elf.filter_vuln_by_symbol(vuln_bin.vuln_func())
+                vuln_addr += elf_vuln_addr
+                # prepare tree
+                func_set = set(map(lambda x: hex(x), elf_vuln_addr))
+                func_set = vuln_bin.vuln_func()
+                if func_set:
+                    tree.append(('{}: {}'.format(lib_name, func_set), {}))
+            else:
+                if lib_name not in self.binaries:
+                    # new VulnBin and check vulnerable
+                    lib_path = get_path_or_exit(self.rootfs, lib_name)
+                    lib = VulnBin(lib_path, [])
+                else:
+                    lib = self.binaries[lib_name]
+                vuln_func, subtree = self._find_affected(lib, vuln_bin)
+                elf_vuln_addr = elf.filter_vuln_by_symbol(vuln_func)
+                vuln_addr += elf_vuln_addr
+                # prepare tree
+                func_set = set(map(lambda x: hex(x), elf_vuln_addr))
+                func_set = vuln_func
+                if func_set:
+                    tree.append(('{}: {}'.format(lib_name, func_set), subtree))
+        vuln_exp_sym = []
+        # set vuln path if exist
+        if vuln_addr:
+            elf.set_vuln_path(vuln_addr)
+            vuln_exp_sym = elf.vuln_func()
+        # record to binaries if vulnerable
+        if vuln_exp_sym:
+            self.binaries[elf.name] = elf
+        return vuln_exp_sym, OD(tree)
+
+    def find(self):
+        for elf_name in self.targets:
+            elf_path = get_path_or_exit(self.rootfs, elf_name)
+            elf = VulnBin(elf_path, [])
+            symbol, tree = self._find_affected(elf, self.vuln_bin)
+            tr = LeftAligned()
+            tree = tr({elf_name: tree})
+            print(tree)
+
+
+def get_path_or_exit(rootfs, vuln_elf):
+    vuln_lib = list(Path(rootfs).rglob(vuln_elf))
+    if not vuln_lib:
+        sys.exit('{}: no such file'.format(vuln_elf))
+    return str(vuln_lib[0].absolute())
+
+
 def main():
     parser = argparse.ArgumentParser(description='find possible exploit path')
     parser.add_argument('vuln_elf', type=str)
@@ -125,16 +216,17 @@ def main():
     parser.add_argument('-e', '--exploit-path', help='show exploit path from targets', action='store_true')
     
     args = parser.parse_args()
-    vuln_lib = list(Path(args.rootfs).rglob(args.vuln_elf))[0].absolute()
-    vuln_lib = str(vuln_lib)
-    binaries = {}
-    binaries[vuln_lib] = VulnBin(vuln_lib, args.vuln_addr)
+    vuln_lib_path = get_path_or_exit(args.rootfs, args.vuln_elf)
+    vuln_bin = VulnBin(vuln_lib_path, list(map(lambda x: int(x, 16), args.vuln_addr)))
     if args.block_path:
-        binaries[vuln_lib].print_block_path()
+        vuln_bin.print_block_path()
     if args.call_stack:
-        binaries[vuln_lib].print_call_stack()
+        vuln_bin.print_call_stack()
     if args.vuln_functions:
-        binaries[vuln_lib].print_vuln_func()
+        vuln_bin.print_vuln_func()
+    if args.exploit_path:
+        exp_path = ExploitPath(args.rootfs, args.targets, vuln_bin)
+        exp_path.find()
 
 if __name__ == '__main__':
     main()
