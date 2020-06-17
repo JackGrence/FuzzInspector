@@ -159,8 +159,8 @@ class ExploitPath:
                 vuln_addr += elf_vuln_addr
                 # prepare tree
                 func_set = set(map(lambda x: hex(x), elf_vuln_addr))
-                func_set = vuln_bin.vuln_func()
                 if func_set:
+                    func_set = vuln_bin.vuln_func()
                     tree.append(('{}: {}'.format(lib_name, func_set), {}))
             else:
                 if lib_name not in self.binaries:
@@ -174,8 +174,8 @@ class ExploitPath:
                 vuln_addr += elf_vuln_addr
                 # prepare tree
                 func_set = set(map(lambda x: hex(x), elf_vuln_addr))
-                func_set = vuln_func
                 if func_set:
+                    func_set = vuln_func
                     tree.append(('{}: {}'.format(lib_name, func_set), subtree))
         vuln_exp_sym = []
         # set vuln path if exist
