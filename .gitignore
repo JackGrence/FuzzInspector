@@ -5,3 +5,13 @@
 *.xml
 rootfs
 *.cache
+peda*
+__pycache__
+afl_*
+*.env
+dlink
+vigor*
+zyxel*
+.gdb_history
+tags
+reverse
