@@ -22,7 +22,7 @@ def start_afl(_ql: Qiling):
     # now emulate the EXE
     def place_input_callback(uc, inp, _, data):
         env_var = ("SCRIPT_NAME=/dniapi/").encode()
-        env_vars = env_var + inp + b"\x00" + (_ql.path).encode() + b"\x00"
+        env_vars = env_var + inp[:0x1000 - 1] + b"\x00"
         _ql.mem.write(_ql.target_addr, env_vars)
     """
     Callback from inside
@@ -56,7 +56,6 @@ def ql_hook_block_disasm(ql, address, size):
 
 def debug(ql):
     print(hex(ql.reg.pc))
-    input()
 
 
 def web_sessions_length(ql):
@@ -79,6 +78,8 @@ def ql_hook(ql, main_addr):
     # the trick to speed up admin.cgi
     ql.hook_address(web_sessions_length, 0x13694)
 
+    ql.hook_address(debug, 0x182b8)
+
 
 with open('cur.env', 'r') as f:
     env = f.read()
@@ -93,8 +94,11 @@ def my_sandbox(path, rootfs, input_file, debug_level=1):
         ql = Qiling(path, rootfs, env=env, console=False)
     elif debug_level == 3:
         ql = Qiling(path, rootfs, output='default', env=env, verbose=1)
+    elif debug_level == 4:
+        ql = Qiling(path, rootfs, output='debug', env=env, verbose=5)
     else:
         ql = Qiling(path, rootfs, output='debug', env=env, verbose=5)
+        ql.hook_block(ql_hook_block_disasm)
 
     ql.input_file = input_file
 
