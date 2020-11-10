@@ -63,6 +63,10 @@ def web_sessions_length(ql):
     ql.reg.r3 += 0x2800 - size
 
 
+def ignore_check_session(ql):
+    ql.reg.pc += 4
+    ql.reg.r0 = 0
+
 def ql_hook(ql, main_addr):
 
     # Bitmap generator
@@ -78,7 +82,7 @@ def ql_hook(ql, main_addr):
     # the trick to speed up admin.cgi
     ql.hook_address(web_sessions_length, 0x13694)
 
-    ql.hook_address(debug, 0x182b8)
+    ql.hook_address(ignore_check_session, 0x182b8)
 
 
 with open('cur.env', 'r') as f:
