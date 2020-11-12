@@ -13,7 +13,7 @@ app = Flask(__name__)
 def hello_world():
     address = request.args.get('address')
     b_info = block_info.get_func_block(address)
-    return flask.render_template('index.html', block_info=b_info)
+    return flask.render_template('index.html', address=address, block_info=b_info)
 
 
 @app.route('/bitmap/get')
