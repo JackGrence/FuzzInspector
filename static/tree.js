@@ -1,8 +1,26 @@
-/* When the user clicks on the button,
-toggle between hiding and showing the dropdown content */
-function dropdownClick(e) {
-  id = e.id + '_block';
-  document.getElementById(id).classList.toggle("show");
+function showAssembly(e) {
+  address = e.data.name;
+	/*
+<div class="input-group mb-3">
+  <div class="input-group-prepend">
+    <button class="btn btn-outline-secondary" type="button">Button</button>
+  </div>
+  <input type="text" class="form-control" placeholder="" aria-label="" aria-describedby="basic-addon1">
+</div>
+	 */
+  $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
+    $("#disasm").html('');
+    $(data).each(function() {
+      var group = $("<div>").prop("class", "input-group");
+      var addrBtn = $("<div>").prop("class", "input-group-prepend")
+		    .append($("<button>").prop("class", "btn btn-outline-secondary")
+		    .prop("type", "button").text("0x" + this["offset"].toString(16)));
+      var asmText = $("<input>").prop("type", "text").prop("class", "form-control")
+		    .prop("aria-describedby", "basic-addon1")
+		    .prop("value", this["opcode"]);
+      $("#disasm").append(group.append(addrBtn).append(asmText));
+    });
+  });
 }
 
 function redraw() {
@@ -50,7 +68,7 @@ function update(source) {
       .attr("transform", function(d) {
         return "translate(" + source.y0 + "," + source.x0 + ")";
     })
-    .on('click', dropdownClick);
+    .on('click', showAssembly);
 
   // Add Circle for the nodes
   nodeEnter.append('circle')

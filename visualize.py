@@ -62,8 +62,6 @@ class BlockParser:
         for block in afbj:
             key = hex(block['addr'])
             blocks[key] = blocks.get(key, {'name': key, 'children': []})
-            pdbj = json.loads(self.r2.cmd(f'pdbj @{addr}'))
-            blocks[key]['block'] = list(map(lambda x: x['opcode'], pdbj))
 
         assigned = set()
 
@@ -82,6 +80,9 @@ class BlockParser:
         key = hex(afbj[0]['addr'])
 
         return blocks[key]
+
+    def basicblock_disasm(self, addr):
+        return self.r2.cmdj(f'pdbj @{addr}')
 
 
 if __name__ == '__main__':

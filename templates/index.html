@@ -8,6 +8,7 @@
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
   <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="{{ url_for('static', filename='tree.js') }}"></script>
+  <style>*{font-family: 'monospace', 'Source Code Pro for Powerline';}</style>
 </head>
 
 <body>
@@ -20,6 +21,17 @@
 </nav>
 <div id="cfg">
 </div>
+<nav class="navbar navbar-light bg-light">
+  <div class="container-fluid">
+    <div class="row w-100">
+      <div id="disasm" class="col-4">
+      </div>
+      <div id="cpustate" class="col-8 text-justify">
+	rax=<br>rbx=<br>rcx=<br>
+      </div>
+    </div>
+  </div>
+</nav>
 
 <script>
 
@@ -68,20 +80,6 @@ setInterval(function(){
     }
   });
 }, 1000);
-
-// Close the dropdown if the user clicks outside of it
-window.onclick = function(event) {
-  if (!event.target.matches('.dropbtn')) {
-    var dropdowns = document.getElementsByClassName("dropdown-content");
-    var i;
-    for (i = 0; i < dropdowns.length; i++) {
-      var openDropdown = dropdowns[i];
-      if (openDropdown.classList.contains('show')) {
-        openDropdown.classList.remove('show');
-      }
-    }
-  }
-}
 
 </script>
 </body>
