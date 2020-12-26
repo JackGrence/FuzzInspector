@@ -1,4 +1,3 @@
-import pika
 import sys
 import os
 import unicornafl
@@ -10,12 +9,7 @@ from qiling import *
 
 
 def ql_bitmap(ql, address, size):
-    ql.s.append(f'{address:08x}')
-    if len(ql.s) > 500:
-        ql.channel.basic_publish(exchange='',
-                                 routing_key=ql.queue_name,
-                                 body=''.join(ql.s))
-        ql.s = []
+    print(f'visualizer_afl:0x{address:x} END')
 
 
 def start_afl(_ql: Qiling):
@@ -34,11 +28,6 @@ def start_afl(_ql: Qiling):
         with_afl = _ql.uc.afl_fuzz(input_file=_ql.input_file,
                                    place_input_callback=place_input_callback,
                                    exits=[_ql.os.exit_point])
-        if _ql.s:
-            _ql.channel.basic_publish(exchange='',
-                                      routing_key=_ql.queue_name,
-                                      body=''.join(_ql.s))
-            _ql.s = []
         if not with_afl:
             print("Ran once without AFL attached.")
             os._exit(0)  # that's a looot faster than tidying up.
@@ -69,9 +58,6 @@ def ignore_check_session(ql):
 
 def ql_hook(ql, main_addr):
 
-    # Bitmap generator
-    ql.hook_block(ql_bitmap)
-
     # find AFL input buffer
     addr = ql.mem.search("SCRIPT_NAME=/dniapi/".encode())
     ql.target_addr = addr[0]
@@ -82,7 +68,7 @@ def ql_hook(ql, main_addr):
     # the trick to speed up admin.cgi
     ql.hook_address(web_sessions_length, 0x13694)
 
-    ql.hook_address(ignore_check_session, 0x182b8)
+    # ql.hook_address(ignore_check_session, 0x182b8)
 
 
 with open('cur.env', 'r') as f:
@@ -91,28 +77,23 @@ env = {i.split('=', 1)[0]: i.split('=', 1)[1] for i in env.split('\n')[:-1]}
 
 
 # sandbox to emulate the EXE
-def my_sandbox(path, rootfs, input_file, debug_level=1):
+def my_sandbox(path, rootfs, input_file, trace=False, debug_level=1):
     env['SCRIPT_NAME'] = env['SCRIPT_NAME'].ljust(0x1000, '\x00')
+    ql_arg = {'env': env,
+              'verbose': debug_level}
     # setup Qiling engine
-    if debug_level == 2:
-        ql = Qiling(path, rootfs, env=env, console=False)
-    elif debug_level == 3:
-        ql = Qiling(path, rootfs, output='default', env=env, verbose=1)
-    elif debug_level == 4:
-        ql = Qiling(path, rootfs, output='debug', env=env, verbose=5)
-    else:
-        ql = Qiling(path, rootfs, output='debug', env=env, verbose=5)
+    if debug_level <= 1:
+        ql_arg['console'] = False
+    if debug_level > 1:
+        ql_arg['output'] = 'debug'
+    ql = Qiling(path, rootfs, **ql_arg)
+    if debug_level >= 5:
         ql.hook_block(ql_hook_block_disasm)
+    if trace:
+        # Bitmap generator
+        ql.hook_block(ql_bitmap)
 
     ql.input_file = input_file
-
-    # prepare bitmap generator by rabbitMQ
-    ql.queue_name = 'hello'
-    ql.s = []
-    conn_param = pika.ConnectionParameters(host='localhost')
-    ql.connection = pika.BlockingConnection(conn_param)
-    ql.channel = ql.connection.channel()
-    ql.channel.queue_declare(queue=ql.queue_name)
 
     # do hook stuff and assign entry point
     ql_hook(ql, ql.os.elf_entry)
@@ -127,5 +108,10 @@ if __name__ == "__main__":
     if len(sys.argv) <= 1:
         raise ValueError("No input file provided.")
     else:
+        arg = {}
+        if len(sys.argv) > 3:
+            arg['trace'] = 'trace' in sys.argv[3]
+        if len(sys.argv) > 2:
+            arg['debug_level'] = int(sys.argv[2])
         my_sandbox(["./rootfs/usr/sbin/admin.cgi"],
-                   "./rootfs", sys.argv[1], len(sys.argv))
+                   "./rootfs", sys.argv[1], **arg)
