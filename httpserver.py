@@ -6,7 +6,7 @@ from flask import Response
 from visualize import BitmapReceiver
 from visualize import BlockParser
 block_info = BlockParser('./rootfs/usr/sbin/admin.cgi')
-bitmap = BitmapReceiver('hello')
+bitmap = BitmapReceiver()
 bitmap.start()
 app = Flask(__name__)
 
@@ -20,7 +20,8 @@ def hello_world():
 
 @app.route('/bitmap/get')
 def bitmap_get():
-    return bitmap.data
+    result = {x: y['hit'] for x, y in bitmap.data.items()}
+    return result
 
 
 @app.route('/basicblock/disassemble')
@@ -28,3 +29,22 @@ def assembly_get():
     address = request.args.get('address')
     result = block_info.basicblock_disasm(address)
     return Response(json.dumps(result),  mimetype='application/json')
+
+
+@app.route("/basicblock/cpustate")
+def basicblock_cpustate():
+    address = request.args.get('address')
+    result = block_info.basicblock_cpustate(address)
+    return Response(json.dumps(result),  mimetype='application/json')
+
+
+@app.route("/fuzzer")
+def fuzzer():
+    return "0 0x197d0 2 r1 0 0x197d0 0x4141"
+
+
+@app.route("/seed")
+def seed():
+    filename = request.args.get('fn')
+    bitmap.queue.put(filename)
+    return "OK"

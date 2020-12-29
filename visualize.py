@@ -7,40 +7,45 @@ import subprocess
 import struct
 import r2pipe
 import json
+import queue
 
 
 class BitmapReceiver (threading.Thread):
 
-    def __init__(self, queue_name, addr_size=4):
+    def __init__(self):
         threading.Thread.__init__(self)
+        self.queue = queue.Queue()
         self.data = {}
-        self.queue_name = queue_name
-        self.addr_size = addr_size
-        conn_param = pika.ConnectionParameters(host='localhost')
-        self.connection = pika.BlockingConnection(conn_param)
-        self.channel = self.connection.channel()
-        self.channel.queue_declare(queue=self.queue_name)
 
-    def generate_data(self, body):
-        addr_len = self.addr_size * 2  # ascii
-        while body:
-            addr = hex(int(body[:addr_len], 16))
-            self.data[addr] = self.data.get(addr, 0)
-            self.data[addr] += 1
-            body = body[addr_len:]
+    def generate_data(self, filename, addr_list):
+        '''
+        self.data = {
+          ADDR1: {
+            'hit': N
+            'seed': set()
+          }
+        }
+        '''
+        for addr in addr_list:
+            addr = hex(addr)
+            self.data[addr] = self.data.get(addr, {'hit': 0, 'seed': set()})
+            self.data[addr]['hit'] += 1
+            self.data[addr]['seed'].add(filename)
 
     def run(self):
-        for method_frame, _, body in self.channel.consume(self.queue_name):
-
-            # Display the message parts
-            self.generate_data(body)
-
-            # Acknowledge the message
-            self.channel.basic_ack(method_frame.delivery_tag)
+        while True:
+            filename = self.queue.get()
+            # python ql.py inputfile debug_level trace
+            result = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
+            result = result.stdout.split(b'visualizer_afl:')
+            result = filter(lambda x: b'END' in x, result)
+            result = list(map(lambda x: int(x.split(b'END')[0], 0), result))
+            self.generate_data(filename, result)
+            self.queue.task_done()
 
     def print(self, addr):
         print('--------------------')
-        addr = struct.unpack("<Q", addr)[0]
+        addr = struct.unpack('<Q', addr)[0]
         print(hex(addr))
 
 
@@ -83,6 +88,9 @@ class BlockParser:
 
     def basicblock_disasm(self, addr):
         return self.r2.cmdj(f'pdbj @{addr}')
+
+    def basicblock_cpustate(self, addr):
+        pass
 
 
 if __name__ == '__main__':
