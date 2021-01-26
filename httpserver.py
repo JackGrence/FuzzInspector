@@ -31,16 +31,17 @@ def assembly_get():
     return Response(json.dumps(result),  mimetype='application/json')
 
 
-@app.route("/basicblock/cpustate")
+@app.route("/cpustate")
 def basicblock_cpustate():
     address = request.args.get('address')
-    result = block_info.basicblock_cpustate(address)
+    result = bitmap.cpustate(address, block_info.get_block_addr(address))
+    result = {'result': result}
     return Response(json.dumps(result),  mimetype='application/json')
 
 
 @app.route("/fuzzer")
 def fuzzer():
-    return "0 0x197d0 2 r1 0 0x197d0 0x4141"
+    return "0 0x198b0 2 ./afl_inputs/vlanIntfs ./afl_inputs/vlan 2 r1 0 0x197d0 0x4141"
 
 
 @app.route("/seed")

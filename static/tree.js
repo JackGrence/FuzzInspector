@@ -1,3 +1,18 @@
+function showCPUState() {
+  data = '<div class="row w-100">';
+  data += '<br><div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
+  data += '</div>';
+  data = $("#cpustate").html() + data;
+  $("#cpustate").html(data);
+  address = this.textContent;
+  $.getJSON("/cpustate", {"address": address}).done(function(data, status){
+    data = data['result'];
+    data = '<div class="row w-100">' + data;
+    data += '</div>';
+    $("#cpustate").html(data);
+  });
+}
+
 function showAssembly(e) {
   address = e.data.name;
 	/*
@@ -14,7 +29,8 @@ function showAssembly(e) {
       var group = $("<div>").prop("class", "input-group");
       var addrBtn = $("<div>").prop("class", "input-group-prepend")
 		    .append($("<button>").prop("class", "btn btn-outline-secondary")
-		    .prop("type", "button").text("0x" + this["offset"].toString(16)));
+		    .prop("type", "button").text("0x" + this["offset"].toString(16)))
+		    .click(showCPUState);
       var asmText = $("<input>").prop("type", "text").prop("class", "form-control")
 		    .prop("aria-describedby", "basic-addon1")
 		    .prop("value", this["opcode"]);

@@ -1,4 +1,3 @@
-import pika
 import threading
 import time
 import os
@@ -31,6 +30,24 @@ class BitmapReceiver (threading.Thread):
             self.data[addr] = self.data.get(addr, {'hit': 0, 'seed': set()})
             self.data[addr]['hit'] += 1
             self.data[addr]['seed'].add(filename)
+
+    def cpustate(self, address, basicblock):
+        if basicblock not in self.data:
+            return
+        filename = list(self.data[basicblock]['seed'])
+        filename = filename[0]
+        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
+                                 address, 'r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'stack'],
+                                stdout=subprocess.PIPE)
+        context = result.stdout.split(b'visualizer_afl:')
+        if len(context) < 2:
+            return
+        context = context[1]
+        context = context.split(b'VISEND')
+        if len(context) < 2:
+            return
+        context = context[0]
+        return context.decode()
 
     def run(self):
         while True:
@@ -89,8 +106,8 @@ class BlockParser:
     def basicblock_disasm(self, addr):
         return self.r2.cmdj(f'pdbj @{addr}')
 
-    def basicblock_cpustate(self, addr):
-        pass
+    def get_block_addr(self, addr):
+        return hex(self.r2.cmdj(f'pdbj @{addr}')[0]['offset'])
 
 
 if __name__ == '__main__':
