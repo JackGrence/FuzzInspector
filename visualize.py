@@ -9,35 +9,62 @@ import json
 import queue
 
 
-class BitmapReceiver (threading.Thread):
+class BinaryWorker:
 
-    def __init__(self):
-        threading.Thread.__init__(self)
-        self.queue = queue.Queue()
-        self.data = {}
+    ACTION_BITMAP = 1
+    ACTION_CPUSTATE = 2
+    ACTION_RELATION = 3
 
-    def generate_data(self, filename, addr_list):
+    def __init__(self, action, address=0, basicblock=0, seeds=[], context=[]):
+        self.action = action
+        self.address = address
+        self.basicblock = basicblock
+        self.seeds = seeds
+        self.context = context
+
+    def run(self, data):
+        if self.action == BinaryWorker.ACTION_BITMAP:
+            # new or use old
+            data['bitmap'] = self.bitmap(data.get('bitmap', {}))
+        elif self.action == BinaryWorker.ACTION_CPUSTATE:
+            # always new
+            data['cpustate'] = self.cpustate()
+        elif self.action == BinaryWorker.ACTION_RELATION:
+            # always new
+            data['relationship'] = self.relationship()
+
+    def bitmap(self, result):
         '''
-        self.data = {
-          ADDR1: {
+        bitmap = {
+          STR_ADDR1: {
             'hit': N
-            'seed': set()
+            'seed': []
           }
         }
         '''
+        filename = self.seeds[0]
+        # python ql.py inputfile debug_level trace
+        addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
+        addr_list = addr_list.stdout.split(b'visualizer_afl:')
+        addr_list = filter(lambda x: b'END' in x, addr_list)
+        addr_list = list(map(lambda x: int(x.split(b'END')[0], 0), addr_list))
+
         for addr in addr_list:
             addr = hex(addr)
-            self.data[addr] = self.data.get(addr, {'hit': 0, 'seed': set()})
-            self.data[addr]['hit'] += 1
-            self.data[addr]['seed'].add(filename)
+            result[addr] = result.get(addr, {'hit': 0, 'seed': []})
+            result[addr]['hit'] += 1
+            if filename not in result[addr]['seed']:
+                result[addr]['seed'].append(filename)
 
-    def cpustate(self, address, basicblock):
-        if basicblock not in self.data:
+        return result
+
+
+    def cpustate(self):
+        if not self.seeds:
             return
-        filename = list(self.data[basicblock]['seed'])
-        filename = filename[0]
+        filename = self.seeds[0]
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 address, 'r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'stack'],
+                                 self.address, *self.context],
                                 stdout=subprocess.PIPE)
         context = result.stdout.split(b'visualizer_afl:')
         if len(context) < 2:
@@ -49,15 +76,21 @@ class BitmapReceiver (threading.Thread):
         context = context[0]
         return context.decode()
 
+    def relationship(self):
+        return f'{self.address} + {self.context}'
+
+
+class BitmapReceiver (threading.Thread):
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.queue = queue.Queue()
+        self.data = {}
+
     def run(self):
         while True:
-            filename = self.queue.get()
-            # python ql.py inputfile debug_level trace
-            result = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
-            result = result.stdout.split(b'visualizer_afl:')
-            result = filter(lambda x: b'END' in x, result)
-            result = list(map(lambda x: int(x.split(b'END')[0], 0), result))
-            self.generate_data(filename, result)
+            worker = self.queue.get()
+            worker.run(self.data)
             self.queue.task_done()
 
     def print(self, addr):

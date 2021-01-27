@@ -5,6 +5,7 @@ from flask import request
 from flask import Response
 from visualize import BitmapReceiver
 from visualize import BlockParser
+from visualize import BinaryWorker
 block_info = BlockParser('./rootfs/usr/sbin/admin.cgi')
 bitmap = BitmapReceiver()
 bitmap.start()
@@ -20,7 +21,7 @@ def hello_world():
 
 @app.route('/bitmap/get')
 def bitmap_get():
-    result = {x: y['hit'] for x, y in bitmap.data.items()}
+    result = bitmap.data;
     return result
 
 
@@ -34,9 +35,16 @@ def assembly_get():
 @app.route("/cpustate")
 def basicblock_cpustate():
     address = request.args.get('address')
-    result = bitmap.cpustate(address, block_info.get_block_addr(address))
-    result = {'result': result}
-    return Response(json.dumps(result),  mimetype='application/json')
+    basicblock = block_info.get_block_addr(address)
+    seeds = bitmap.data['bitmap'][basicblock]['seed']
+    worker = BinaryWorker(BinaryWorker.ACTION_CPUSTATE,
+                          address=address,
+                          basicblock=basicblock,
+                          seeds=seeds,
+                          context=['r0', 'r1', 'r2', 'stack'])
+    bitmap.queue.put(worker)
+
+    return Response(json.dumps({"status": 0}),  mimetype='application/json')
 
 
 @app.route("/fuzzer")
@@ -47,14 +55,22 @@ def fuzzer():
 @app.route("/seed")
 def seed():
     filename = request.args.get('fn')
-    bitmap.queue.put(filename)
-    return "OK"
+    worker = BinaryWorker(BinaryWorker.ACTION_BITMAP,
+                          seeds=[filename])
+    bitmap.queue.put(worker)
+    return Response(json.dumps({"status": 0}),  mimetype='application/json')
 
 
 @app.route("/relationship")
 def relationship():
     address = request.args.get('address')
     context = request.args.get('context')
-    result = bitmap.relationship(address, context)
-    result = {'result': result}
-    return Response(json.dumps(result),  mimetype='application/json')
+    basicblock = block_info.get_block_addr(address)
+    seeds = bitmap.data['bitmap'][basicblock]['seed']
+    worker = BinaryWorker(BinaryWorker.ACTION_RELATION,
+                          address=address,
+                          basicblock=basicblock,
+                          context=context,
+                          seeds=seeds)
+    bitmap.queue.put(worker)
+    return Response(json.dumps({"status": 0}),  mimetype='application/json')

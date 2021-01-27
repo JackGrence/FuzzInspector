@@ -1,21 +1,34 @@
-function showRelationship() {
+function showBitmap(data) {
+  for (var addr in data) {
+    try {
+      document.getElementById(addr).innerHTML = addr + " [" + data[addr]["hit"] + "]";
+    } catch (e) {
+    }
+  }
+}
+
+function prepareRelationship() {
   loading = '<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
   $("#relationship").html($("#relationship").html() + loading);
   addr = $("#relationAddr").val();
   ctx = $("#relationCtx").val();
-  $.getJSON("/relationship", {"address": addr, "context": ctx}).done(function(data, status){
-    $("#relationship").html(data["result"]);
-  });
+  $.getJSON("/relationship", {"address": addr, "context": ctx});
 }
 
-function showCPUState() {
+function showRelationship(data) {
+  $("#relationship").html(data);
+}
+
+function prepareCPUState() {
   address = this.textContent;
   $("#relationAddr").val(address);
   $("#loading").html('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
-  $.getJSON("/cpustate", {"address": address}).done(function(data, status){
-    $("#cpustate").html(data["result"]);
-    $("#loading").html('');
-  });
+  $.getJSON("/cpustate", {"address": address});
+}
+
+function showCPUState(data) {
+  $("#cpustate").html(data);
+  $("#loading").html('');
 }
 
 function showAssembly(e) {
@@ -35,7 +48,7 @@ function showAssembly(e) {
       var addrBtn = $("<div>").prop("class", "input-group-prepend")
 		    .append($("<button>").prop("class", "btn btn-outline-secondary")
 		    .prop("type", "button").text("0x" + this["offset"].toString(16)))
-		    .click(showCPUState);
+		    .click(prepareCPUState);
       var asmText = $("<input>").prop("type", "text").prop("class", "form-control")
 		    .prop("aria-describedby", "basic-addon1")
 		    .prop("value", this["opcode"]);
