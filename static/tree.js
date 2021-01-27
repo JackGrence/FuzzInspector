@@ -1,15 +1,20 @@
+function showRelationship() {
+  loading = '<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
+  $("#relationship").html($("#relationship").html() + loading);
+  addr = $("#relationAddr").val();
+  ctx = $("#relationCtx").val();
+  $.getJSON("/relationship", {"address": addr, "context": ctx}).done(function(data, status){
+    $("#relationship").html(data["result"]);
+  });
+}
+
 function showCPUState() {
-  data = '<div class="row w-100">';
-  data += '<br><div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>';
-  data += '</div>';
-  data = $("#cpustate").html() + data;
-  $("#cpustate").html(data);
   address = this.textContent;
+  $("#relationAddr").val(address);
+  $("#loading").html('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
   $.getJSON("/cpustate", {"address": address}).done(function(data, status){
-    data = data['result'];
-    data = '<div class="row w-100">' + data;
-    data += '</div>';
-    $("#cpustate").html(data);
+    $("#cpustate").html(data["result"]);
+    $("#loading").html('');
   });
 }
 

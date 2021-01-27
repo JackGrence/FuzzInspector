@@ -49,3 +49,12 @@ def seed():
     filename = request.args.get('fn')
     bitmap.queue.put(filename)
     return "OK"
+
+
+@app.route("/relationship")
+def relationship():
+    address = request.args.get('address')
+    context = request.args.get('context')
+    result = bitmap.relationship(address, context)
+    result = {'result': result}
+    return Response(json.dumps(result),  mimetype='application/json')
