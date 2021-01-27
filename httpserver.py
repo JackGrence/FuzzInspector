@@ -21,7 +21,16 @@ def hello_world():
 
 @app.route('/bitmap/get')
 def bitmap_get():
-    result = bitmap.data;
+    result = Response(json.dumps(bitmap.data),  mimetype='application/json')
+    # clear cpustate and relationship
+    # maybe race but ignore :p
+    # TODO: timestamp
+    cpustate = bitmap.data.get('cpustate', '')
+    relationship = bitmap.data.get('relationship', '')
+    if cpustate != '':
+        bitmap.data['cpustate'] = ''
+    if relationship != '':
+        bitmap.data['relationship'] = ''
     return result
 
 

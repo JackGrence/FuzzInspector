@@ -16,7 +16,8 @@ function prepareRelationship() {
 }
 
 function showRelationship(data) {
-  $("#relationship").html(data);
+  if (data !== '')
+    $("#relationship").html(data);
 }
 
 function prepareCPUState() {
@@ -27,8 +28,10 @@ function prepareCPUState() {
 }
 
 function showCPUState(data) {
-  $("#cpustate").html(data);
-  $("#loading").html('');
+  if (data !== '') {
+    $("#cpustate").html(data);
+    $("#loading").html('');
+  }
 }
 
 function showAssembly(e) {
