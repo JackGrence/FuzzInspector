@@ -22,16 +22,18 @@ class BinaryWorker:
         self.seeds = seeds
         self.context = context
 
-    def run(self, data):
+    def run(self, data, cnt):
         if self.action == BinaryWorker.ACTION_BITMAP:
             # new or use old
             data['bitmap'] = self.bitmap(data.get('bitmap', {}))
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
             # always new
             data['cpustate'] = self.cpustate()
+            data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
             # always new
             data['relationship'] = self.relationship()
+            data['relationship_cnt'] = cnt
 
     def bitmap(self, result):
         '''
@@ -88,9 +90,11 @@ class BitmapReceiver (threading.Thread):
         self.data = {}
 
     def run(self):
+        cnt = 0
         while True:
             worker = self.queue.get()
-            worker.run(self.data)
+            worker.run(self.data, cnt)
+            cnt += 1
             self.queue.task_done()
 
     def print(self, addr):

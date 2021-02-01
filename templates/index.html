@@ -106,11 +106,20 @@ root.y0 = 0;
 
 update(root);
 
+let cpustateCnt = -1;
+let relationshipCnt = -1;
+
 setInterval(function(){
   $.get("/bitmap/get", function(data, status){
     showBitmap(data["bitmap"]);
-    showCPUState(data["cpustate"]);
-    showRelationship(data["relationship"]);
+    if (cpustateCnt != data["cpustate_cnt"]) {
+      showCPUState(data["cpustate"]);
+      cpustateCnt = data["cpustate_cnt"];
+    }
+    if (relationshipCnt != data["relationship_cnt"]) {
+      showRelationship(data["relationship"]);
+      relationshipCnt = data["relationship_cnt"];
+    }
   });
 }, 1000);
 
