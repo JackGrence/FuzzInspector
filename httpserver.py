@@ -34,13 +34,16 @@ def assembly_get():
 @app.route("/cpustate")
 def basicblock_cpustate():
     address = request.args.get('address')
+    context = request.args.get('context').strip()
+    context = context.split(' ') if context else []
+    context = context + ['default']
     basicblock = block_info.get_block_addr(address)
     seeds = bitmap.data['bitmap'][basicblock]['seed']
     worker = BinaryWorker(BinaryWorker.ACTION_CPUSTATE,
                           address=address,
                           basicblock=basicblock,
                           seeds=seeds,
-                          context=['r0', 'r1', 'r2', 'stack'])
+                          context=context)
     bitmap.queue.put(worker)
 
     return Response(json.dumps({"status": 0}),  mimetype='application/json')

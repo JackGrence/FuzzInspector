@@ -24,7 +24,7 @@ function prepareCPUState() {
   address = this.textContent;
   $("#relationAddr").val(address);
   $("#loading").html('<div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div>');
-  $.getJSON("/cpustate", {"address": address});
+  $.getJSON("/cpustate", {"address": address, "context": $("#userCtx").val()});
 }
 
 function showCPUState(data) {
