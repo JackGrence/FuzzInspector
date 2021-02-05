@@ -63,7 +63,7 @@ def seed():
 @app.route("/relationship")
 def relationship():
     address = request.args.get('address')
-    context = request.args.get('context')
+    context = request.args.get('context').strip().split(' ')
     basicblock = block_info.get_block_addr(address)
     seeds = bitmap.data['bitmap'][basicblock]['seed']
     worker = BinaryWorker(BinaryWorker.ACTION_RELATION,
