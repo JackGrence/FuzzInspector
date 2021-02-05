@@ -52,8 +52,9 @@ class CPUStateHelper:
     @classmethod
     def byte(cls, ql, length, addr):
         result = f'{hex(addr)}:<br>'
-        result += hexdump(ql.mem.read(addr, length), result='return')
+        result += hexdump.hexdump(ql.mem.read(addr, length), result='return')
         result += '<br>'
+        result = result.replace('\n', '<br>')
         return result
 
     @classmethod
