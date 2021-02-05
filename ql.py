@@ -15,7 +15,7 @@ def ql_bitmap(ql, address, size):
 def start_afl(_ql: Qiling):
     # now emulate the EXE
     def place_input_callback(uc, inp, _, data):
-        env_var = ("SCRIPT_NAME=/dniapi/").encode()
+        env_var = ("SCRIPT_NAME=").encode()
         env_vars = env_var + inp[:0x1000 - 1] + b"\x00"
         _ql.mem.write(_ql.target_addr, env_vars)
     """
