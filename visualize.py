@@ -78,8 +78,37 @@ class BinaryWorker:
         context = context[0]
         return context.decode()
 
+    '''
+    Return unmutable offsets
+    '''
+    def colorize(self, buf, l, r):
+        old_buf = buf[:]
+        buf = buf[:l] + os.urandom(r - l) + buf[r:]
+        filename = '/tmp/vis.cur'
+        with open(filename, 'wb') as f:
+            f.write(buf)
+        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
+                                 self.address, *self.context],
+                                stdout=subprocess.PIPE)
+        if b'visualizer_afl:' in result.stdout:
+            # still hit address, mutable
+            return []
+        else:
+            # path change, find unmutable part
+            if r - l <= 1:
+                return [l]
+            m = (l + r) // 2
+            result = self.colorize(old_buf, l, m)
+            result += self.colorize(old_buf, m, r)
+            return result
+
     def relationship(self):
-        return f'{self.address} + {self.context}'
+        filename = self.seeds[0]
+        with open(filename, 'rb') as f:
+            buf = f.read()
+        # colorize
+        unmutable = self.colorize(buf, 0, len(buf))
+        return f'{self.address} + {unmutable}'
 
 
 class BitmapReceiver (threading.Thread):
