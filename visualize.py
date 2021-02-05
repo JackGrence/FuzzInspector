@@ -7,6 +7,87 @@ import struct
 import r2pipe
 import json
 import queue
+import hexdump
+
+
+class CPUStateHelper:
+
+    # str_5_0x1234, byte_6_0x1234, u64_8_0x1234, u32_4_0x1234, u16_2_0x1234
+    # TODO: bootstrap table
+    @classmethod
+    def html(cls, ql):
+        result = ''
+        for ctx in ql.viscontext:
+            name = ctx.split('_')
+            if len(name) == 3:
+                name[1] = int(name[1], 0)
+                name[2] = int(name[2], 0)
+                if name[0] == 'str':
+                    result += cls.str(ql, name[1], name[2])
+                elif name[0] == 'byte':
+                    result += cls.byte(ql, name[1], name[2])
+                elif name[0][0] == 'u':
+                    name[0] = int(name[0][1:])
+                    result += cls.unpack(ql, name[0], name[1], name[2])
+            elif 'stack' in ctx:
+                result += cls.stack(ql)
+            elif 'default' in ctx:
+                result += cls.default(ql)
+            else:
+                result += cls.reg(ql, ctx)
+        return result
+
+    @classmethod
+    def unpack(cls, ql, unpack, length, addr):
+        unpack_helper = {64: ql.unpack64, 32: ql.unpack32, 16: ql.unpack16}
+        # ex: value = ql.unpack32(ql.mem.read(addr, 4))
+        result = ''
+        item_size = unpack // 8
+        for i in range(length):
+            value = unpack_helper[unpack](ql.mem.read(addr, item_size))
+            result += f'{hex(addr)} = {hex(value)}<br>'
+            addr += item_size
+        return result
+
+    @classmethod
+    def byte(cls, ql, length, addr):
+        result = f'{hex(addr)}:<br>'
+        result += hexdump(ql.mem.read(addr, length), result='return')
+        result += '<br>'
+        return result
+
+    @classmethod
+    def str(cls, ql, length, addr):
+        result = ''
+        for i in range(length):
+            s = ql.mem.string(addr)
+            result += f'{hex(addr)}: {s}<br>'
+            addr += len(s) + 1
+        return result
+    
+    @classmethod
+    def reg(cls, ql, name):
+        value = ql.reg.read(name)
+        return f'{name} = {hex(value)}<br>'
+
+    @classmethod
+    def stack(cls, ql):
+        result = ''
+        num_bytes = ql.archbit // 8
+        for i in range(10):
+            name = ql.reg.sp + i * num_bytes
+            value = ql.mem.read(name, num_bytes)
+            value = ql.unpack(value)
+            result += f'{hex(name)} = {hex(value)}<br>'
+        return result
+
+    @classmethod
+    def default(cls, ql):
+        result = ''
+        for reg in ql.reg.register_mapping:
+            result += cls.reg(ql, reg)
+        result += cls.stack(ql)
+        return result
 
 
 class BinaryWorker:

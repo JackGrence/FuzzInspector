@@ -1,6 +1,7 @@
 import sys
 import os
 import unicornafl
+from visualize import CPUStateHelper
 
 # Make sure Qiling uses our patched unicorn instead of it's own,
 # second so without instrumentation!
@@ -59,27 +60,8 @@ def ignore_check_session(ql):
 
 def visualizer_hook(ql):
     # mem(type_len_addr):
-    # str_5_0x1234, byte_6_0x1234, u64_8_0x1234, u32_4_0x1234, u16_2_0x1234
     print('visualizer_afl:')
-    for ctx in ql.viscontext:
-        name = ctx.split('_')
-        if len(name) == 3:
-            name[1] = int(name[1], 0)
-            name[2] = int(name[2], 0)
-            value = ql.unpack32(ql.mem.read(name[2], 4))
-            name = hex(name[2])
-            print(f'{name} = 0x{value:x}<br>')
-        elif 'stack' in ctx:
-            num_bytes = ql.archbit // 8
-            for i in range(10):
-                name = ql.reg.sp + i * num_bytes
-                value = ql.mem.read(name, num_bytes)
-                value = ql.unpack(value)
-                print(f'0x{name:x} = 0x{value:x}<br>')
-        else:
-            name = ctx
-            value = ql.reg.read(name)
-            print(f'{name} = 0x{value:x}<br>')
+    print(CPUStateHelper.html(ql))
     ql.mem.show_mapinfo()
     print('VISEND')
     sys.stdout.flush()
