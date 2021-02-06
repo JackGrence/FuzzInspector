@@ -129,12 +129,10 @@ class BinaryWorker:
         filename = self.seeds[0]
         # python ql.py inputfile debug_level trace
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
-        addr_list = addr_list.stdout.split(b'visualizer_afl:')
-        addr_list = filter(lambda x: b'END' in x, addr_list)
-        addr_list = list(map(lambda x: int(x.split(b'END')[0], 0), addr_list))
+        addr_list = self.parse_visresult(addr_list.stdout)
 
         for addr in addr_list:
-            addr = hex(addr)
+            addr = hex(int(addr, 0))
             result[addr] = result.get(addr, {'hit': 0, 'seed': []})
             result[addr]['hit'] += 1
             if filename not in result[addr]['seed']:
@@ -150,15 +148,8 @@ class BinaryWorker:
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
                                  self.address, *self.context],
                                 stdout=subprocess.PIPE)
-        context = result.stdout.split(b'visualizer_afl:')
-        if len(context) < 2:
-            return
-        context = context[1]
-        context = context.split(b'VISEND')
-        if len(context) < 2:
-            return
-        context = context[0]
-        return context.decode()
+        result = self.parse_visresult(result.stdout)
+        return result if result else ''
 
     '''
     Return unmutable offsets
@@ -172,7 +163,7 @@ class BinaryWorker:
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
                                  self.address, *self.context],
                                 stdout=subprocess.PIPE)
-        if b'visualizer_afl:' in result.stdout:
+        if self.parse_visresult(result.stdout):
             # still hit address, mutable
             return []
         else:
@@ -191,6 +182,12 @@ class BinaryWorker:
         # colorize
         unmutable = self.colorize(buf, 0, len(buf))
         return f'{self.address} + {unmutable}'
+
+    def parse_visresult(self, output):
+        output = output.split(b'visualizer_afl:')
+        output = filter(lambda x: b'VISEND' in x, output)
+        output = list(map(lambda x: x.split(b'VISEND')[0].decode(), output))
+        return output
 
 
 class BitmapReceiver (threading.Thread):

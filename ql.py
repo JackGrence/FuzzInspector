@@ -10,7 +10,7 @@ from qiling import *
 
 
 def ql_bitmap(ql, address, size):
-    print(f'visualizer_afl:0x{address:x} END')
+    print(f'visualizer_afl:0x{address:x} VISEND')
 
 
 def start_afl(_ql: Qiling):
