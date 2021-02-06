@@ -29,12 +29,21 @@ class CPUStateHelper:
                 elif name[0][0] == 'u':
                     name[0] = int(name[0][1:])
                     result += cls.unpack(ql, name[0], name[1], name[2])
+                elif name[0] == 'hex':
+                    result += cls.hex(ql, name[1], name[2])
             elif 'stack' in ctx:
                 result += cls.stack(ql)
             elif 'default' in ctx:
                 result += cls.default(ql)
             else:
                 result += cls.reg(ql, ctx)
+        return result
+
+    @classmethod
+    def hex(cls, ql, length, addr):
+        result = f'{hex(addr)}: '
+        result += ql.mem.read(addr, length).hex()
+        result += '<br>'
         return result
 
     @classmethod
