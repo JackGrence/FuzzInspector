@@ -184,13 +184,61 @@ class BinaryWorker:
             result += self.colorize(old_buf, m, r)
             return result
 
+    def exec_context(self, buf):
+        filename = '/tmp/vis.cur'
+        with open(filename, 'wb') as f:
+            f.write(buf)
+        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
+                                 self.address, *self.context],
+                                stdout=subprocess.PIPE)
+        return self.parse_visresult(result.stdout)
+
+    def exec_context_rand(self, buf, l, r, unmutable=[]):
+        old_buf = list(buf[:])
+        buf = buf[:l] + os.urandom(r - l) + buf[r:]
+        buf = list(buf)
+        for i in unmutable:
+            buf[i] = old_buf[i]
+        buf = bytes(buf)
+        return self.exec_context(buf)
+
+    '''
+    Return interesting(context changed) offsets
+    '''
+    def interesting(self, buf, l, r, expect, unmutable=[]):
+        result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
+        while not result:
+            result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
+
+        if ''.join(result) == ''.join(expect):
+            # context still the same, return []
+            return []
+        else:
+            # context changed, find interesting part
+            if r - l <= 1:
+                return [l]
+            m = (l + r) // 2
+            result = self.interesting(buf, l, m, expect)
+            result += self.interesting(buf, m, r, expect)
+            return result
+
     def relationship(self):
         filename = self.seeds[0]
         with open(filename, 'rb') as f:
             buf = f.read()
         # colorize
         unmutable = self.colorize(buf, 0, len(buf))
-        return f'{self.address} + {unmutable}'
+        # interesting bytes
+        expect = self.exec_context(buf)
+        offset = self.interesting(buf, 0, len(buf), expect, unmutable=unmutable)
+        # output
+        result = f'{self.address}<br>'
+        result += f'{unmutable}<br>'
+        result += f'{offset}<br>'
+        result += f'{"".join(expect)}<br>'
+        result += hexdump.hexdump(buf, result='return').replace('\n', '<br>')
+        result += '<br>'
+        return result
 
     def parse_visresult(self, output):
         output = output.split(b'visualizer_afl:')
