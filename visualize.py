@@ -20,8 +20,13 @@ class CPUStateHelper:
         for ctx in ql.viscontext:
             name = ctx.split('_')
             if len(name) == 3:
+                # parse length, reg/mem
                 name[1] = int(name[1], 0)
-                name[2] = int(name[2], 0)
+                if name[2] in ql.reg.register_mapping:
+                    name[2] = ql.reg.read(name[2])
+                else:
+                    name[2] = int(name[2], 0)
+                # parse type
                 if name[0] == 'str':
                     result += cls.str(ql, name[1], name[2])
                 elif name[0] == 'byte':
