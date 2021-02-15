@@ -223,8 +223,8 @@ class BinaryWorker:
             if r - l <= 1:
                 return [l]
             m = (l + r) // 2
-            result = self.interesting(buf, l, m, expect)
-            result += self.interesting(buf, m, r, expect)
+            result = self.interesting(buf, l, m, expect, unmutable=unmutable)
+            result += self.interesting(buf, m, r, expect, unmutable=unmutable)
             return result
 
     def relationship(self):
