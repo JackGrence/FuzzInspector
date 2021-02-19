@@ -51,7 +51,7 @@ def basicblock_cpustate():
 
 @app.route("/fuzzer")
 def fuzzer():
-    return "0 0x198b0 2 ./afl_inputs/vlanIntfs ./afl_inputs/vlan 2 r1 0 0x197d0 0x4141"
+    return bitmap.data.get('constraint', '0')
 
 
 @app.route("/seed")
@@ -75,5 +75,15 @@ def relationship():
                           basicblock=basicblock,
                           context=context,
                           seeds=seeds)
+    bitmap.queue.put(worker)
+    return Response(json.dumps({"status": 0}),  mimetype='application/json')
+
+
+@app.route("/constraint")
+def constraint():
+    context = request.args.get('context').strip()
+    context = context.split(' ') if context else []
+    worker = BinaryWorker(BinaryWorker.ACTION_CONSTRAINT,
+                          context=context)
     bitmap.queue.put(worker)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')

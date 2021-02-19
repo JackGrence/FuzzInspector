@@ -1,3 +1,8 @@
+function prepareConstraint() {
+  ctx = $("#constraintCtx").val();
+  $.getJSON("/constraint", {"context": ctx});
+}
+
 function showBitmap(data) {
   for (var addr in data) {
     try {

@@ -8,6 +8,7 @@ import r2pipe
 import json
 import queue
 import hexdump
+import signal
 
 
 class CPUStateHelper:
@@ -110,6 +111,7 @@ class BinaryWorker:
     ACTION_BITMAP = 1
     ACTION_CPUSTATE = 2
     ACTION_RELATION = 3
+    ACTION_CONSTRAINT = 4
 
     def __init__(self, action, address=0, basicblock=0, seeds=[], context=[]):
         self.action = action
@@ -130,6 +132,42 @@ class BinaryWorker:
             # always new
             data['relationship'] = self.relationship()
             data['relationship_cnt'] = cnt
+        elif self.action == BinaryWorker.ACTION_CONSTRAINT:
+            self.constraint(data)
+
+    def parse_constraint(self, context):
+        '''
+        type_offset_data (hex_5_deadbeef)
+        offset length data (5 4 0xde 0xad 0xbe 0xef)
+        '''
+        datatype, offset, data = context.split('_')
+        offset = int(offset, 0)
+        if datatype == 'hex':
+            data = bytes.fromhex(data)
+        elif datatype == 'str':
+            data = data.encode() + b'\x00'
+        else:
+            data = b'unknown'
+
+        result = f'{offset} {len(data)} '
+        for d in data:
+            result += f'{hex(d)} '
+        return result
+
+    def constraint(self, bitmapdata):
+        '''
+        total [constraint...] (2 [constraint1] [constraint2])
+        '''
+        # context to afl++
+        result = f'{len(self.context)} '
+        for ctx in self.context:
+            data = self.parse_constraint(ctx)
+            result += f'{data} '
+        bitmapdata['constraint'] = result
+        # SIGUSR2 inform afl++
+        pids = subprocess.check_output(['pidof', 'afl-fuzz']).split(b' ')
+        for pid in map(int, pids):
+            os.kill(pid, signal.SIGUSR2)
 
     def bitmap(self, result):
         '''

@@ -21,7 +21,7 @@
 <div id="cfg">
 </div>
 <div class="container bg-light">
-  <div class="row">
+  <div class="row border">
     <div id="disasm" class="col">
       disasm
     </div>
@@ -49,7 +49,7 @@
       </div>
     </div>
   </div>
-  <div class="row">
+  <div class="row border-left border-right border-top">
     <div class="col">
       Relationship form
       <div class="form-group row">
@@ -71,9 +71,25 @@
       </div>
     </div>
   </div>
-  <div class="row">
+  <div class="row border-left border-right">
     <div id="relationship" class="col">
       Relationship
+    </div>
+  </div>
+  <div class="row border">
+    <div class="col">
+      Constraint form
+      <div class="form-group row">
+	<label for="constraintCtx" class="col-sm-2 col-form-label">Constraint</label>
+	<div class="col-sm-10">
+	  <input type="text" class="form-control" id="constraintCtx" placeholder="Constraint">
+	</div>
+      </div>
+      <div class="form-group row">
+	<div class="col-sm-10">
+	  <button onclick="prepareConstraint()" class="btn btn-primary">Set constraint</button>
+	</div>
+      </div>
     </div>
   </div>
 </div>
