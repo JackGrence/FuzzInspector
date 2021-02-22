@@ -37,12 +37,26 @@ class CPUStateHelper:
                     result += cls.unpack(ql, name[0], name[1], name[2])
                 elif name[0] == 'hex':
                     result += cls.hex(ql, name[1], name[2])
+                elif name[0] == 'map':
+                    result += cls.map(ql, name[1], name[2])
             elif 'stack' in ctx:
                 result += cls.stack(ql)
             elif 'default' in ctx:
                 result += cls.default(ql)
             else:
                 result += cls.reg(ql, ctx)
+        return result
+
+    @classmethod
+    def map(cls, ql, length, addr):
+        result = ''
+        for start, end, perm, info in ql.mem.map_info:
+            if addr in range(start, end):
+                target = info
+                for start, end, perm, info in ql.mem.map_info:
+                    if target == info:
+                        result += "[+] %08x - %08x - %s - %s    %s<br>\n" % (start, end, hex(addr - start), perm, info)
+                break
         return result
 
     @classmethod
