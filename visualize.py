@@ -43,8 +43,15 @@ class CPUStateHelper:
                 result += cls.stack(ql)
             elif 'default' in ctx:
                 result += cls.default(ql)
+            elif 'backtrace' in ctx:
+                result += cls.backtrace(ql)
             else:
                 result += cls.reg(ql, ctx)
+        return result
+
+    @classmethod
+    def backtrace(cls, ql):
+        result = '<div id="backtrace"></div>\n'
         return result
 
     @classmethod
@@ -94,7 +101,7 @@ class CPUStateHelper:
             result += f'{hex(addr)}: {s}<br>'
             addr += len(s) + 1
         return result
-    
+
     @classmethod
     def reg(cls, ql, name):
         value = ql.reg.read(name)
@@ -134,13 +141,13 @@ class BinaryWorker:
         self.seeds = seeds
         self.context = context
 
-    def run(self, data, cnt):
+    def run(self, data, cnt, bin_info):
         if self.action == BinaryWorker.ACTION_BITMAP:
             # new or use old
-            data['bitmap'] = self.bitmap(data.get('bitmap', {}))
+            data['bitmap'] = self.bitmap(data.get('bitmap', {}), bin_info)
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
             # always new
-            data['cpustate'] = self.cpustate()
+            data['cpustate'] = self.cpustate(bin_info)
             data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
             # always new
@@ -183,7 +190,7 @@ class BinaryWorker:
         for pid in map(int, pids):
             os.kill(pid, signal.SIGUSR2)
 
-    def bitmap(self, result):
+    def bitmap(self, result, bin_info):
         '''
         bitmap = {
           STR_ADDR1: {
@@ -197,25 +204,45 @@ class BinaryWorker:
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
         addr_list = self.parse_visresult(addr_list.stdout)
 
-        for addr in addr_list:
+        cnt = 0
+        # last one is mapinfo
+        bin_info.init(addr_list[-1])
+        for addr in addr_list[:-1]:
             addr = hex(int(addr, 0))
             result[addr] = result.get(addr, {'hit': 0, 'seed': []})
             result[addr]['hit'] += 1
+            bin_info.update(int(addr, 0))
             if filename not in result[addr]['seed']:
                 result[addr]['seed'].append(filename)
+            cnt += 1
+            if cnt % 1000 == 0:
+                print(cnt, len(addr_list), filename)
+        print(result)
 
         return result
 
 
-    def cpustate(self):
+    def cpustate(self, bin_info):
         if not self.seeds:
             return
+
+        # do cpustate
         filename = self.seeds[0]
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 self.address, *self.context],
+                                 str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
         result = self.parse_visresult(result.stdout)
+
+        # do backtrace
+        if 'backtrace' in self.context:
+            # self.backtrace()
+            # result.append(bt)
+            pass
+
         return result if result else ''
+
+    def backtrace(self):
+        pass
 
     '''
     Return unmutable offsets
@@ -227,7 +254,7 @@ class BinaryWorker:
         with open(filename, 'wb') as f:
             f.write(buf)
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 self.address, *self.context],
+                                 str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
         if self.parse_visresult(result.stdout):
             # still hit address, mutable
@@ -246,7 +273,7 @@ class BinaryWorker:
         with open(filename, 'wb') as f:
             f.write(buf)
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 self.address, *self.context],
+                                 str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
         return self.parse_visresult(result.stdout)
 
@@ -289,7 +316,7 @@ class BinaryWorker:
         expect = self.exec_context(buf)
         offset = self.interesting(buf, 0, len(buf), expect, unmutable=unmutable)
         # output
-        result = f'{self.address}<br>'
+        result = f'{hex(self.address)}<br>'
         result += f'{unmutable}<br>'
         result += f'{offset}<br>'
         result += f'{"".join(expect)}<br>'
@@ -310,12 +337,13 @@ class BitmapReceiver (threading.Thread):
         threading.Thread.__init__(self)
         self.queue = queue.Queue()
         self.data = {}
+        self.bin_info = BinaryInfo()
 
     def run(self):
         cnt = 0
         while True:
             worker = self.queue.get()
-            worker.run(self.data, cnt)
+            worker.run(self.data, cnt, self.bin_info)
             cnt += 1
             self.queue.task_done()
 
@@ -325,14 +353,70 @@ class BitmapReceiver (threading.Thread):
         print(hex(addr))
 
 
+class BinaryInfo:
+    def __init__(self):
+        self.binaries = {}
+
+    def info2path(self, info):
+        info = info.split('/', 1)
+        return '/' + info[1] if len(info) >= 2 else ''
+
+    def init(self, map_info):
+        self.map_info = eval(map_info)
+
+    def addr2bin(self, addr):
+        cur_info = ''
+        cur_start = 0
+        for start, end, perm, info in self.map_info:
+            # record start
+            if info != cur_info:
+                cur_info = info
+                cur_start = start
+            # find binary
+            if addr >= start and addr < end:
+                name = self.info2path(info)
+                if not name:
+                    continue
+                if name not in self.binaries:
+                    self.binaries[name] = BlockParser(name, cur_start)
+                addr = addr - cur_start + self.binaries[name].r2.cmdj('ij')['bin']['baddr']
+                return addr, self.binaries[name]
+
+    def update(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        binary.update(bin_addr)
+
+    def get_func_block(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        return binary.get_func_block(bin_addr)
+
+    def get_func_addr(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        return binary.get_func_addr(bin_addr)
+
+    def get_block_addr(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        return binary.get_block_addr(bin_addr)
+
+    def basicblock_disasm(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        return binary.basicblock_disasm(bin_addr)
+
+
 class BlockParser:
-    def __init__(self, elf):
+    def __init__(self, elf, base=0):
+        self.base = base
         self.elf = elf
         self.r2 = r2pipe.open(self.elf)
         print(f'start analyze {self.elf}...')
         self.r2.cmd('aaa')
         self.bits = json.loads(self.r2.cmd('iIj'))['bits']
         print(f'finish')
+
+    def update(self, addr):
+        result = self.r2.cmd(f'pdbj @{addr}')
+        if not result:
+            self.r2.cmd(f'af @{addr}')
 
     def get_func_block(self, addr):
         # {'jump': 29153, 'fail': 28838, 'opaddr': 28688, 'addr': 28688,
@@ -367,6 +451,9 @@ class BlockParser:
 
     def get_block_addr(self, addr):
         return hex(self.r2.cmdj(f'pdbj @{addr}')[0]['offset'])
+
+    def get_func_addr(self, addr):
+        return hex(self.r2.cmdj(f'pdbj @{addr}')[0]['fcn_addr'])
 
 
 if __name__ == '__main__':

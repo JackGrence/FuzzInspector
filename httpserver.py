@@ -6,15 +6,15 @@ from flask import Response
 from visualize import BitmapReceiver
 from visualize import BlockParser
 from visualize import BinaryWorker
-block_info = BlockParser('./rootfs/usr/sbin/admin.cgi')
 bitmap = BitmapReceiver()
 bitmap.start()
+block_info = bitmap.bin_info
 app = Flask(__name__)
 
 
 @app.route('/')
 def hello_world():
-    address = request.args.get('address')
+    address = int(request.args.get('address'), 0)
     b_info = block_info.get_func_block(address)
     return flask.render_template('index.html', address=address, block_info=b_info)
 
@@ -26,14 +26,14 @@ def bitmap_get():
 
 @app.route('/basicblock/disassemble')
 def assembly_get():
-    address = request.args.get('address')
+    address = int(request.args.get('address'), 0)
     result = block_info.basicblock_disasm(address)
     return Response(json.dumps(result),  mimetype='application/json')
 
 
 @app.route("/cpustate")
 def basicblock_cpustate():
-    address = request.args.get('address')
+    address = int(request.args.get('address'), 0)
     context = request.args.get('context').strip()
     context = context.split(' ') if context else []
     context = context + ['default']
@@ -65,7 +65,7 @@ def seed():
 
 @app.route("/relationship")
 def relationship():
-    address = request.args.get('address')
+    address = int(request.args.get('address'), 0)
     context = request.args.get('context').strip()
     context = context.split(' ') if context else []
     basicblock = block_info.get_block_addr(address)

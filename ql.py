@@ -30,6 +30,9 @@ def start_afl(_ql: Qiling):
                                    place_input_callback=place_input_callback,
                                    exits=[_ql.os.exit_point])
         if not with_afl:
+            if _ql.trace:
+                print(f'visualizer_afl: {_ql.mem.map_info} VISEND')
+                sys.stdout.flush()
             print("Ran once without AFL attached.")
             os._exit(0)  # that's a looot faster than tidying up.
     except unicornafl.UcAflError as ex:
@@ -69,6 +72,10 @@ def visualizer_hook(ql):
 
 def ql_hook(ql, main_addr, vishook):
 
+    # Bitmap generator
+    if ql.trace:
+        ql.hook_block(ql_bitmap)
+
     # find AFL input buffer
     addr = ql.mem.search("SCRIPT_NAME=/dniapi/".encode())
     ql.target_addr = addr[0]
@@ -105,9 +112,7 @@ def my_sandbox(path, rootfs, input_file,
     ql = Qiling(path, rootfs, **ql_arg)
     if debug_level >= 5:
         ql.hook_block(ql_hook_block_disasm)
-    if trace:
-        # Bitmap generator
-        ql.hook_block(ql_bitmap)
+    ql.trace = trace
 
     ql.input_file = input_file
 
