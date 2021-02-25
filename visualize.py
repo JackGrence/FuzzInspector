@@ -204,20 +204,16 @@ class BinaryWorker:
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
         addr_list = self.parse_visresult(addr_list.stdout)
 
-        cnt = 0
         # last one is mapinfo
         bin_info.init(addr_list[-1])
         for addr in addr_list[:-1]:
             addr = hex(int(addr, 0))
-            result[addr] = result.get(addr, {'hit': 0, 'seed': []})
+            if addr not in result:
+                result[addr] = {'hit': 0, 'seed': []}
+                bin_info.update(int(addr, 0))
             result[addr]['hit'] += 1
-            bin_info.update(int(addr, 0))
             if filename not in result[addr]['seed']:
                 result[addr]['seed'].append(filename)
-            cnt += 1
-            if cnt % 1000 == 0:
-                print(cnt, len(addr_list), filename)
-        print(result)
 
         return result
 
@@ -362,27 +358,50 @@ class BinaryInfo:
         return '/' + info[1] if len(info) >= 2 else ''
 
     def init(self, map_info):
+        self.last_info = None
         self.map_info = eval(map_info)
 
+    def map_search(self, addr, map_info):
+        # [start, end, perm, info]
+        if len(map_info) == 1:
+            return map_info[0]
+        if len(map_info) == 0:
+            return []
+        mid = len(map_info) // 2
+        mid_info = map_info[mid]
+        if addr >= mid_info[0] and addr < mid_info[1]:
+            return mid_info
+        elif addr >= mid_info[1]:
+            return self.map_search(addr, map_info[mid + 1:])
+        elif addr < mid_info[0]:
+            return self.map_search(addr, map_info[:mid])
+
     def addr2bin(self, addr):
-        cur_info = ''
-        cur_start = 0
-        for start, end, perm, info in self.map_info:
-            # record start
-            if info != cur_info:
-                cur_info = info
-                cur_start = start
-            # find binary
-            if addr >= start and addr < end:
-                name = self.info2path(info)
-                if not name:
-                    continue
-                if name not in self.binaries:
-                    self.binaries[name] = BlockParser(name, cur_start)
-                addr = addr - cur_start + self.binaries[name].r2.cmdj('ij')['bin']['baddr']
-                return addr, self.binaries[name]
+        # [start, end, perm, info]
+        if (self.last_info and
+                addr >= self.last_info[0] and addr < self.last_info[1]):
+            result_info = self.last_info
+        else:
+            result_info = self.map_search(addr, self.map_info)
+
+        self.last_info = result_info
+
+        if not result_info:
+            # not found :(
+            return addr, None
+
+        start, end, perm, info = result_info
+        name = self.info2path(info)
+        if not name:
+            # not a exist binary :(
+            return addr, None
+        if name not in self.binaries:
+            self.binaries[name] = BlockParser(name, start)
+        addr = addr - start + self.binaries[name].r2.cmdj('ij')['bin']['baddr']
+        return addr, self.binaries[name]
 
     def update(self, addr):
+        # TODO: binary maybe None
         bin_addr, binary = self.addr2bin(addr)
         binary.update(bin_addr)
 
