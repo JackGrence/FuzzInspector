@@ -3,9 +3,9 @@ import json
 from flask import Flask
 from flask import request
 from flask import Response
-from visualize import BitmapReceiver
-from visualize import BlockParser
-from visualize import BinaryWorker
+from visualizer import BitmapReceiver
+from visualizer import BlockParser
+from visualizer import BinaryWorker
 bitmap = BitmapReceiver()
 bitmap.start()
 block_info = bitmap.bin_info

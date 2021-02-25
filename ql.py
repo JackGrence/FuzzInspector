@@ -1,7 +1,7 @@
 import sys
 import os
 import unicornafl
-from visualize import CPUStateHelper
+from visualizer import CPUStateHelper
 
 # Make sure Qiling uses our patched unicorn instead of it's own,
 # second so without instrumentation!
