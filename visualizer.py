@@ -409,7 +409,7 @@ class BinaryInfo:
             return addr, None
         if name not in self.binaries:
             self.binaries[name] = BlockParser(name, start)
-        addr = addr - start + self.binaries[name].r2.cmdj('ij')['bin']['baddr']
+        addr = self.binaries[name].addr_ql_to_r2(addr)
         return addr, self.binaries[name]
 
     def update(self, addr):
@@ -455,8 +455,9 @@ class BlockParser:
         blocks = {}
         afbj = json.loads(self.r2.cmd(f'afbj @{addr}'))
         for block in afbj:
+            rebase_addr = self.addr_r2_to_ql(block['addr'])
             key = hex(block['addr'])
-            blocks[key] = blocks.get(key, {'name': key, 'children': []})
+            blocks[key] = blocks.get(key, {'name': hex(rebase_addr), 'children': []})
 
         assigned = set()
 
@@ -477,13 +478,28 @@ class BlockParser:
         return blocks[key]
 
     def basicblock_disasm(self, addr):
-        return self.r2.cmdj(f'pdbj @{addr}')
+        result = self.r2.cmdj(f'pdbj @{addr}')
+        for i in result:
+            i['offset'] = self.addr_r2_to_ql(i['offset'])
+        return result
 
     def get_block_addr(self, addr):
-        return hex(self.r2.cmdj(f'pdbj @{addr}')[0]['offset'])
+        result = self.r2.cmdj(f'pdbj @{addr}')[0]['offset']
+        result = self.addr_r2_to_ql(result)
+        return hex(result)
 
     def get_func_addr(self, addr):
-        return hex(self.r2.cmdj(f'pdbj @{addr}')[0]['fcn_addr'])
+        result = self.r2.cmdj(f'pdbj @{addr}')[0]['fcn_addr']
+        result = self.addr_r2_to_ql(result)
+        return hex(result)
+
+    def addr_r2_to_ql(self, addr):
+        return addr - self.r2.cmdj('ij')['bin']['baddr'] + self.base
+
+    def addr_ql_to_r2(self, addr):
+        # ql = r2 - baddr + base
+        # r2 = ql - (0 - baddr + base)
+        return addr - self.addr_r2_to_ql(0)
 
 
 if __name__ == '__main__':
