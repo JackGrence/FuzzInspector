@@ -1,4 +1,6 @@
 import threading
+import traceback
+import sys
 import time
 import os
 import select
@@ -18,41 +20,75 @@ class CPUStateHelper:
     @classmethod
     def html(cls, ql):
         result = ''
-        for ctx in ql.viscontext:
-            name = ctx.split('_')
-            if len(name) == 3:
-                # parse length, reg/mem
-                name[1] = int(name[1], 0)
-                if name[2] in ql.reg.register_mapping:
-                    name[2] = ql.reg.read(name[2])
+        try:
+            for ctx in ql.viscontext:
+                name = ctx.split('_')
+                if len(name) == 3:
+                    # parse length, reg/mem
+                    name[1] = int(name[1], 0)
+                    if name[2] in ql.reg.register_mapping:
+                        name[2] = ql.reg.read(name[2])
+                    else:
+                        name[2] = int(name[2], 0)
+                    # parse type
+                    if name[0] == 'str':
+                        result += cls.str(ql, name[1], name[2])
+                    elif name[0] == 'byte':
+                        result += cls.byte(ql, name[1], name[2])
+                    elif name[0][0] == 'u':
+                        name[0] = int(name[0][1:])
+                        result += cls.unpack(ql, name[0], name[1], name[2])
+                    elif name[0] == 'hex':
+                        result += cls.hex(ql, name[1], name[2])
+                    elif name[0] == 'map':
+                        result += cls.map(ql, name[1], name[2])
+                elif 'stack' in ctx:
+                    result += cls.stack(ql)
+                elif 'default' in ctx:
+                    result += cls.default(ql)
+                elif 'backtrace' in ctx:
+                    result += cls.backtrace(ql)
                 else:
-                    name[2] = int(name[2], 0)
-                # parse type
-                if name[0] == 'str':
-                    result += cls.str(ql, name[1], name[2])
-                elif name[0] == 'byte':
-                    result += cls.byte(ql, name[1], name[2])
-                elif name[0][0] == 'u':
-                    name[0] = int(name[0][1:])
-                    result += cls.unpack(ql, name[0], name[1], name[2])
-                elif name[0] == 'hex':
-                    result += cls.hex(ql, name[1], name[2])
-                elif name[0] == 'map':
-                    result += cls.map(ql, name[1], name[2])
-            elif 'stack' in ctx:
-                result += cls.stack(ql)
-            elif 'default' in ctx:
-                result += cls.default(ql)
-            elif 'backtrace' in ctx:
-                result += cls.backtrace(ql)
-            else:
-                result += cls.reg(ql, ctx)
+                    result += cls.reg(ql, ctx)
+        except:
+            traceback.print_exc(limit=2, file=sys.stdout)
         return result
 
     @classmethod
     def backtrace(cls, ql):
-        result = '<div id="backtrace"></div>\n'
+        result = ''
+        if 'r11' in ql.reg.register_mapping:
+            byte_len = ql.archbit // 8
+            cur_fp = ql.reg.r11
+            info = cls.map_search(ql.reg.pc, ql.mem.map_info)[3]
+            result += f'#0 {hex(ql.reg.pc)} {info}<br>\n'
+            frame_num = 1
+            while cur_fp != 0:
+                prev_fp = ql.mem.read(cur_fp - byte_len, byte_len)
+                prev_fp = ql.unpack(prev_fp)
+                ret = ql.mem.read(cur_fp, byte_len)
+                ret = ql.unpack(ret)
+                info = cls.map_search(ret, ql.mem.map_info)[3]
+                result += f'#{frame_num} {hex(ret)} {info}<br>\n'
+                cur_fp = prev_fp
+                frame_num += 1
         return result
+
+    @classmethod
+    def map_search(cls, addr, map_info):
+        # [start, end, perm, info]
+        if len(map_info) == 1:
+            return map_info[0]
+        if len(map_info) == 0:
+            return []
+        mid = len(map_info) // 2
+        mid_info = map_info[mid]
+        if addr >= mid_info[0] and addr < mid_info[1]:
+            return mid_info
+        elif addr >= mid_info[1]:
+            return cls.map_search(addr, map_info[mid + 1:])
+        elif addr < mid_info[0]:
+            return cls.map_search(addr, map_info[:mid])
 
     @classmethod
     def map(cls, ql, length, addr):
@@ -229,16 +265,7 @@ class BinaryWorker:
                                 stdout=subprocess.PIPE)
         result = self.parse_visresult(result.stdout)
 
-        # do backtrace
-        if 'backtrace' in self.context:
-            # self.backtrace()
-            # result.append(bt)
-            pass
-
         return result if result else ''
-
-    def backtrace(self):
-        pass
 
     '''
     Return unmutable offsets
@@ -361,28 +388,13 @@ class BinaryInfo:
         self.last_info = None
         self.map_info = eval(map_info)
 
-    def map_search(self, addr, map_info):
-        # [start, end, perm, info]
-        if len(map_info) == 1:
-            return map_info[0]
-        if len(map_info) == 0:
-            return []
-        mid = len(map_info) // 2
-        mid_info = map_info[mid]
-        if addr >= mid_info[0] and addr < mid_info[1]:
-            return mid_info
-        elif addr >= mid_info[1]:
-            return self.map_search(addr, map_info[mid + 1:])
-        elif addr < mid_info[0]:
-            return self.map_search(addr, map_info[:mid])
-
     def addr2bin(self, addr):
         # [start, end, perm, info]
         if (self.last_info and
                 addr >= self.last_info[0] and addr < self.last_info[1]):
             result_info = self.last_info
         else:
-            result_info = self.map_search(addr, self.map_info)
+            result_info = CPUStateHelper.map_search(addr, self.map_info)
 
         self.last_info = result_info
 
@@ -430,7 +442,6 @@ class BlockParser:
         print(f'start analyze {self.elf}...')
         self.r2.cmd('aaa')
         self.bits = json.loads(self.r2.cmd('iIj'))['bits']
-        print(f'finish')
 
     def update(self, addr):
         result = self.r2.cmd(f'pdbj @{addr}')
