@@ -58,16 +58,15 @@
     var level = {}
     if (data.edges.length)
       level[data.edges[0].from] = 0;
-    var maxLevel = 0;
+    var last_level = 0;
     for (i in data.edges) {
       edge = data.edges[i];
       if (!(edge.to in level)) {
 	if (!(edge.from in level)) {
-	  level[edge.from] = maxLevel;
+	  level[edge.from] = last_level;
 	}
 	level[edge.to] = level[edge.from] + 1;
-	maxLevel = (level[edge.to] > maxLevel) ? level[edge.to] : maxLevel;
-	maxLevel = level[edge.to];
+	last_level = level[edge.to];
       }
     }
 
