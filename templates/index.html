@@ -8,6 +8,13 @@
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
   <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="{{ url_for('static', filename='tree.js') }}"></script>
+  <script src="{{ url_for('static', filename='vis-network.min.js') }}"></script>
+  <style type="text/css">
+      #mynetwork {
+        height: 850px;
+        border: 1px solid lightgray;
+      }
+    </style>
 </head>
 
 <body>
@@ -18,6 +25,72 @@
     <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
   </form>
 </nav>
+<div id="mynetwork"></div>
+  <script>
+    // provide data in the DOT language
+    var DOTstring = {{ dot | safe }};
+    DOTstring = DOTstring.replaceAll('\\l', '\n');
+    DOTstring = DOTstring.replaceAll('\\"', '');
+    var parsedData = vis.parseDOTNetwork(DOTstring);
+
+    var data = {
+      nodes: parsedData.nodes,
+      edges: parsedData.edges
+    }
+
+    //var options = parsedData.options;
+    const options = {
+      layout: {
+	hierarchical: {
+	  enabled: true,
+	  levelSeparation: 150,
+	},
+      },
+      physics: {
+	hierarchicalRepulsion: {
+	  nodeDistance: 150,
+	},
+      },
+    };
+
+    // you can extend the options like a normal JSON variable:
+
+    var level = {}
+    if (data.edges.length)
+      level[data.edges[0].from] = 0;
+    var maxLevel = 0;
+    for (i in data.edges) {
+      edge = data.edges[i];
+      if (!(edge.to in level)) {
+	if (!(edge.from in level)) {
+	  level[edge.from] = maxLevel;
+	}
+	level[edge.to] = level[edge.from] + 1;
+	maxLevel = (level[edge.to] > maxLevel) ? level[edge.to] : maxLevel;
+	maxLevel = level[edge.to];
+      }
+    }
+
+    for (i in data.nodes) {
+      node = data.nodes[i];
+      node.color = {
+	border: "#000000",
+	background: "#FFFFFF",
+	highlight: {
+	  border: "#28a745",
+	  background: "#FFFFFF",
+	},
+      };
+      node.font = { face: "monospace", align: "left" };
+      node.level = level[node.id];
+      node.label = node.id;
+    }
+
+    // create a network
+    var container = document.getElementById("mynetwork");
+    var network = new vis.Network(container, data, options);
+
+  </script>
 <div id="cfg">
 </div>
 <div class="container bg-light">
@@ -136,7 +209,8 @@ let cpustateCnt = -1;
 let relationshipCnt = -1;
 
 setInterval(function(){
-  $.get("/bitmap/get", function(data, status){
+  blocks = data.nodes.map(function (i){return i['id']}).join('_');
+  $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
     showBitmap(data["bitmap"]);
     if (cpustateCnt != data["cpustate_cnt"]) {
       showCPUState(data["cpustate"]);

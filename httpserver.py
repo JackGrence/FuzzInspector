@@ -16,12 +16,24 @@ app = Flask(__name__)
 def hello_world():
     address = int(request.args.get('address'), 0)
     b_info = block_info.get_func_block(address)
-    return flask.render_template('index.html', address=hex(address), block_info=b_info)
+    dot = block_info.get_basic_block_func_dot(address)
+    return flask.render_template('index.html', address=hex(address), block_info=b_info, dot=dot)
 
 
-@app.route('/bitmap/get')
+@app.route('/bitmap/get', methods=['GET', 'POST'])
 def bitmap_get():
-    return Response(json.dumps(bitmap.data),  mimetype='application/json')
+    result = dict(bitmap.data)
+    blocks = request.values.get('blocks')
+    if blocks:
+        blocks = blocks.split('_');
+        blocks = map(lambda x: hex(int(x, 0)), blocks)
+        result['bitmap'] = {}
+        for block in blocks:
+            if block not in bitmap.data['bitmap']:
+                result['bitmap'][block] = {'hit': 0}
+            else:
+                result['bitmap'][block] = {'hit': bitmap.data['bitmap'][block]['hit']}
+    return Response(json.dumps(result),  mimetype='application/json')
 
 
 @app.route('/basicblock/disassemble')

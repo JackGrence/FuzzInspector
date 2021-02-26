@@ -359,7 +359,7 @@ class BitmapReceiver (threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.queue = queue.Queue()
-        self.data = {}
+        self.data = {'bitmap': {}}
         self.bin_info = BinaryInfo()
 
     def run(self):
@@ -433,6 +433,10 @@ class BinaryInfo:
         bin_addr, binary = self.addr2bin(addr)
         return binary.basicblock_disasm(bin_addr)
 
+    def get_basic_block_func_dot(self, addr):
+        bin_addr, binary = self.addr2bin(addr)
+        return json.dumps(binary.get_basic_block_func_dot(bin_addr))
+
 
 class BlockParser:
     def __init__(self, elf, base=0):
@@ -442,6 +446,9 @@ class BlockParser:
         print(f'start analyze {self.elf}...')
         self.r2.cmd('aaa')
         self.bits = json.loads(self.r2.cmd('iIj'))['bits']
+
+    def get_basic_block_func_dot(self, addr):
+        return self.r2.cmd(f'agfd @{addr}')
 
     def update(self, addr):
         result = self.r2.cmd(f'pdbj @{addr}')
