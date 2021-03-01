@@ -1,6 +1,21 @@
+function execute() {
+  let address = $("#dropdownDisasToggle").text().split(":")[0];
+  let context = $("#inputCtx").val();
+  if ($("#nav-tab").attr("select") == "CPUState") {
+    $("#nav-cpustate .context-loading").removeClass("d-none");
+    $.getJSON("/cpustate", {"address": address, "context": context});
+  } else {
+    $("#nav-relation .context-loading").removeClass("d-none");
+    $.getJSON("/relationship", {"address": address, "context": context});
+    console.log("relationship");
+  }
+}
+
 function prepareConstraint() {
-  ctx = $("#constraintCtx").val();
+  ctx = $("#inputConstraint").val();
   $.getJSON("/constraint", {"context": ctx});
+  $("#btnConstraint").text("...");
+  setTimeout(function () { $("#btnConstraint").text("Constraint"); }, 1000);
 }
 
 function showBitmap(data, nodes, network) {
@@ -30,8 +45,10 @@ function prepareRelationship() {
 }
 
 function showRelationship(data) {
-  if (data !== '')
-    $("#relationship").html(data);
+  if (data !== '') {
+    $("#nav-relation .context-loading").addClass("d-none");
+    $("#divRelation").html(data);
+  }
 }
 
 function prepareCPUState() {
@@ -43,8 +60,8 @@ function prepareCPUState() {
 
 function showCPUState(data) {
   if (data !== '') {
-    $("#cpustate").html(data);
-    $("#loading").html('');
+    $("#nav-cpustate .context-loading").addClass("d-none");
+    $("#divCPUState").html(data);
   }
 }
 
@@ -304,6 +321,11 @@ function DOT2CFG(DOTstring) {
       $("#visualContentLongTitle").text("Address: " + address);
       // prepare disassembly
       $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
+	// set first
+	let first = "0x" + data[0]["offset"].toString(16);
+	first += ":\t" + data[0]["opcode"];
+	$("#dropdownDisasToggle").text(first);
+	$("#dropdownDisasToggle").val(first);
 	// map disassembly to items
 	data = data.map(function (x) {
 	  var result = "";
@@ -337,6 +359,11 @@ function DOT2CFG(DOTstring) {
     var result = '<div id="' + node.id + '" class="hit-box">0</div>';
     return result;
   }).join(''));
+
+  // switch between CPUState and Relationship
+  $("#nav-tab a").click(function () {
+    $("#nav-tab").attr("select", $(this).text());
+  });
 
   return [network, data];
 }

@@ -1,3 +1,31 @@
+.context {
+  position: relative;
+  overflow: auto;
+  word-wrap: break-word;
+  height: calc(50vh);
+  z-index:1;
+}
+
+.loading {
+  position: absolute;
+  left: calc(50% - 16px);
+  top: calc(50% - 16px);
+}
+
+.context-container {
+  position: relative;
+}
+
+.context-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(6, 6, 6, 0.04);
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
 .overlap {
   position: fixed;
   top: 0;

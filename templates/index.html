@@ -35,37 +35,78 @@
         </button>
       </div>
       <div class="modal-body">
-	<nav>
-	  <div class="nav nav-tabs" id="nav-tab" role="tablist">
-	    <a class="nav-link active" id="nav-cpustate-tab" data-toggle="tab" href="#nav-cpustate" role="tab" aria-controls="nav-cpustate" aria-selected="true">CPUState</a>
-	    <a class="nav-link" id="nav-relation-tab" data-toggle="tab" href="#nav-relation" role="tab" aria-controls="nav-relation" aria-selected="false">Relationship</a>
-	    <a class="nav-link" id="nav-Constraint-tab" data-toggle="tab" href="#nav-Constraint" role="tab" aria-controls="nav-Constraint" aria-selected="false">Constraint</a>
-	  </div>
-	</nav>
-	<div class="tab-content" id="nav-tabContent">
-	  <div class="tab-pane fade show active" id="nav-cpustate" role="tabpanel" aria-labelledby="nav-cpustate-tab">
-	    <div class="dropdown">
-	      <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-		Dropdown button
-	      </button>
-	      <div id="dropdownDisasMenu" class="dropdown-menu" aria-labelledby="dropdownDisasToggle">
-		<a class="dropdown-item" href="#">Action</a>
-		<a class="dropdown-item" href="#">Another action</a>
-		<a class="dropdown-item" href="#">Something else here</a>
+	<div class="container">
+	  <div class="row">
+	    <div class="col">
+	      <div class="dropdown w-100">
+		<button class="btn btn-secondary dropdown-toggle w-100" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		  Dropdown button
+		</button>
+		<div id="dropdownDisasMenu" class="dropdown-menu" aria-labelledby="dropdownDisasToggle">
+		  <a class="dropdown-item" href="#">Action</a>
+		  <a class="dropdown-item" href="#">Another action</a>
+		  <a class="dropdown-item" href="#">Something else here</a>
+		</div>
 	      </div>
 	    </div>
 	  </div>
-	  <div class="tab-pane fade" id="nav-relation" role="tabpanel" aria-labelledby="nav-relation-tab">
-	    Relationship
+	  <div class="row mt-3">
+	    <div class="col">
+	      <nav>
+		<div class="nav nav-tabs" id="nav-tab" role="tablist" select="CPUState">
+		  <a class="nav-link active" id="nav-cpustate-tab" data-toggle="tab" href="#nav-cpustate" role="tab" aria-controls="nav-cpustate" aria-selected="true">CPUState</a>
+		  <a class="nav-link" id="nav-relation-tab" data-toggle="tab" href="#nav-relation" role="tab" aria-controls="nav-relation" aria-selected="false">Relationship</a>
+		</div>
+	      </nav>
+	      <div class="tab-content" id="nav-tabContent">
+		<div class="tab-pane fade show active" id="nav-cpustate" role="tabpanel" aria-labelledby="nav-cpustate-tab">
+		  <div class="context-container mt-3">
+		    <div id="divCPUState" class="context">
+		      CPUState
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<div class="tab-pane fade" id="nav-relation" role="tabpanel" aria-labelledby="nav-relation-tab">
+		  <div class="context-container mt-3">
+		    <div id="divRelation" class="context mt-3">
+		      Relationship
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+	      </div>
+	    </div>
 	  </div>
-	  <div class="tab-pane fade" id="nav-Constraint" role="tabpanel" aria-labelledby="nav-Constraint-tab">
-	    Constraint
+	  <div class="row mt-3">
+	    <div class="col">
+	      <div class="input-group">
+		<input id="inputCtx" type="text" class="form-control" placeholder="default backtrace hex byte str" aria-label="" aria-describedby="basic-addon1">
+		<div class="input-group-prepend">
+		  <button class="btn btn-outline-secondary" type="button" onclick="execute()">Execute</button>
+		</div>
+	      </div>
+	    </div>
 	  </div>
 	</div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary">Save changes</button>
+	<div class="container">
+	  <div class="input-group">
+	    <input id="inputConstraint" type="text" class="form-control" placeholder="str_offset_value" aria-label="" aria-describedby="basic-addon1">
+	    <div class="input-group-prepend">
+	      <button id="btnConstraint" class="btn btn-outline-secondary" type="button" onclick="prepareConstraint()">Constraint</button>
+	    </div>
+	  </div>
+	</div>
       </div>
     </div>
   </div>
@@ -77,6 +118,9 @@
     var result = DOT2CFG(DOTstring)
     var network = result[0];
     var nodes = result[1].nodes;
+    let cpustateCnt = -1;
+    let relationshipCnt = -1;
+
     setInterval(function(){
       // get hit count by address
       blocks = nodes.map(function (i){return i['id']}).join('_');
@@ -207,9 +251,6 @@ root.y0 = 0;
 // root.children.forEach(collapse);
 
 update(root);
-
-let cpustateCnt = -1;
-let relationshipCnt = -1;
 
 </script>
 </body>
