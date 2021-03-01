@@ -121,20 +121,20 @@ function DOT2CFG(DOTstring) {
       $("#visualContentLongTitle").text("Address: " + address);
       // prepare disassembly
       $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
-	// set first
-	let first = "0x" + data[0]["offset"].toString(16);
-	first += ":\t" + data[0]["opcode"];
-	$("#dropdownDisasToggle").text(first);
-	$("#dropdownDisasToggle").val(first);
 	// map disassembly to items
-	data = data.map(function (x) {
+	$("#dropdownDisasMenu").html(data.map(function (x) {
 	  var result = "";
 	  result += "0x" + x["offset"].toString(16);
 	  result += ":\t" + x["opcode"];
 	  var item = '<a class="dropdown-item" href="#">' + result + '</a>';
 	  return item;
-	}).join("");
-	$("#dropdownDisasMenu").html(data);
+	}).join(""));
+	// set first
+	let first = "0x" + data[0]["offset"].toString(16);
+	first += ":\t" + data[0]["opcode"];
+	$("#dropdownDisasToggle").text(first);
+	$("#dropdownDisasToggle").val(first);
+	$($(".dropdown div a")[0]).addClass("active");
 	// regist click event
 	$(".dropdown div a").click(function(){
 	  $("#dropdownDisasToggle").text($(this).text());
