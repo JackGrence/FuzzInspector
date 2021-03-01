@@ -47,7 +47,7 @@ def assembly_get():
 def basicblock_cpustate():
     address = int(request.args.get('address'), 0)
     context = request.args.get('context').strip()
-    context = context.split(' ') if context else []
+    context = context.split(' ') if context else ['default']
     context = context
     basicblock = block_info.get_block_addr(address)
     seeds = bitmap.data['bitmap'][basicblock]['seed']
