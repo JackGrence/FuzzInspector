@@ -227,3 +227,94 @@ function update(source) {
     update(d);
   }
 }
+
+function DOT2CFG(DOTstring) {
+  var parsedData = vis.parseDOTNetwork(DOTstring);
+
+  var data = {
+    nodes: parsedData.nodes,
+    edges: parsedData.edges
+  }
+
+  //var options = parsedData.options;
+  const options = {
+    layout: {
+      hierarchical: {
+	enabled: true,
+	levelSeparation: 150,
+      },
+    },
+    physics: {
+      hierarchicalRepulsion: {
+	nodeDistance: 150,
+      },
+    },
+  };
+
+  // you can extend the options like a normal JSON variable:
+
+  var level = {}
+  if (data.edges.length)
+    level[data.edges[0].from] = 0;
+  var last_level = 0;
+  for (i in data.edges) {
+    edge = data.edges[i];
+    if (!(edge.to in level)) {
+      if (!(edge.from in level)) {
+	level[edge.from] = last_level;
+      }
+      level[edge.to] = level[edge.from] + 1;
+      last_level = level[edge.to];
+    }
+  }
+
+  for (i in data.nodes) {
+    node = data.nodes[i];
+    node.color = {
+      border: "#000000",
+      background: "#FFFFFF",
+      highlight: {
+	border: "#28a745",
+	background: "#FFFFFF",
+      },
+    };
+    node.font = { face: "monospace", align: "left" };
+    node.level = level[node.id];
+    node.label = node.id;
+  }
+
+  // create a network
+  var container = document.getElementById("mynetwork");
+  var network = new vis.Network(container, data, options);
+
+  network.on("click", function (data) {
+    if (data.nodes.length !== 0) {
+      var address = data.nodes[0];
+      // show modal
+      $("#visualContent").modal("show");
+      $("#visualContentLongTitle").text("Address: " + address);
+      // prepare disassembly
+      $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
+	// map disassembly to items
+	data = data.map(function (x) {
+	  var result = "";
+	  result += "0x" + x["offset"].toString(16);
+	  result += ":\t" + x["opcode"];
+	  var item = '<a class="dropdown-item" href="#">' + result + '</a>';
+	  return item;
+	}).join("");
+	$("#dropdownDisasMenu").html(data);
+	// regist click event
+	$(".dropdown div a").click(function(){
+	  console.log(this);
+	  $("#dropdownDisasToggle").text($(this).text());
+	  $("#dropdownDisasToggle").val($(this).text());
+	  $(".dropdown div a").removeClass("active");
+	  $(this).addClass("active");
+	});
+      });
+    }
+  });
+
+  return [network, data];
+}
