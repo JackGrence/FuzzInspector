@@ -3,7 +3,16 @@ function prepareConstraint() {
   $.getJSON("/constraint", {"context": ctx});
 }
 
-function showBitmap(data) {
+function showBitmap(data, nodes, network) {
+  nodes.map(function (node) {
+    let address = parseInt(node["id"]);
+    let hit = data["0x" + address.toString(16)]["hit"];
+    let pos = network.getPosition(node["id"]);
+    pos.y -= 60;
+    pos = network.canvasToDOM(pos);
+    $("#" + node["id"]).css({left: pos.x, top: pos.y});
+    $("#" + node["id"]).text(hit);
+  });
   for (var addr in data) {
     try {
       document.getElementById(addr).innerHTML = addr + " [" + data[addr]["hit"] + "]";
@@ -314,6 +323,20 @@ function DOT2CFG(DOTstring) {
       });
     }
   });
+
+  network.on("dragStart", function (data) {
+    $("#hitCntDiv div").addClass("d-none");
+  });
+
+  network.on("dragEnd", function (data) {
+    $("#hitCntDiv div").removeClass("d-none");
+  });
+
+  // create hit counter box
+  $("#hitCntDiv").html(data.nodes.map(function (node) {
+    var result = '<div id="' + node.id + '" class="hit-box">0</div>';
+    return result;
+  }).join(''));
 
   return [network, data];
 }

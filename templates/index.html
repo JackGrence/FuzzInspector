@@ -9,12 +9,6 @@
   <script src="https://d3js.org/d3.v4.min.js"></script>
   <script src="{{ url_for('static', filename='tree.js') }}"></script>
   <script src="{{ url_for('static', filename='vis-network.min.js') }}"></script>
-  <style type="text/css">
-      #mynetwork {
-        height: 850px;
-        border: 1px solid lightgray;
-      }
-    </style>
 </head>
 
 <body>
@@ -25,7 +19,12 @@
     <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
   </form>
 </nav>
+<div class="overlap">
 <div id="mynetwork"></div>
+<div id="hitCntDiv" class="text-center">
+  <div class="hit-box">1000</div>
+</div>
+</div>
 <div class="modal fade" id="visualContent" tabindex="-1" role="dialog" aria-labelledby="visualContentTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
@@ -77,7 +76,23 @@
     DOTstring = DOTstring.replaceAll('\\"', '');
     var result = DOT2CFG(DOTstring)
     var network = result[0];
-    var data = result[1];
+    var nodes = result[1].nodes;
+    setInterval(function(){
+      // get hit count by address
+      blocks = nodes.map(function (i){return i['id']}).join('_');
+      $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
+	// show hit count
+	showBitmap(data["bitmap"], nodes, network);
+	if (cpustateCnt != data["cpustate_cnt"]) {
+	  showCPUState(data["cpustate"]);
+	  cpustateCnt = data["cpustate_cnt"];
+	}
+	if (relationshipCnt != data["relationship_cnt"]) {
+	  showRelationship(data["relationship"]);
+	  relationshipCnt = data["relationship_cnt"];
+	}
+      });
+    }, 1000);
   </script>
 <div id="cfg">
 </div>
@@ -195,21 +210,6 @@ update(root);
 
 let cpustateCnt = -1;
 let relationshipCnt = -1;
-
-setInterval(function(){
-  blocks = data.nodes.map(function (i){return i['id']}).join('_');
-  $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
-    showBitmap(data["bitmap"]);
-    if (cpustateCnt != data["cpustate_cnt"]) {
-      showCPUState(data["cpustate"]);
-      cpustateCnt = data["cpustate_cnt"];
-    }
-    if (relationshipCnt != data["relationship_cnt"]) {
-      showRelationship(data["relationship"]);
-      relationshipCnt = data["relationship_cnt"];
-    }
-  });
-}, 1000);
 
 </script>
 </body>
