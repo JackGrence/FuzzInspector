@@ -306,7 +306,6 @@ function DOT2CFG(DOTstring) {
 	$("#dropdownDisasMenu").html(data);
 	// regist click event
 	$(".dropdown div a").click(function(){
-	  console.log(this);
 	  $("#dropdownDisasToggle").text($(this).text());
 	  $("#dropdownDisasToggle").val($(this).text());
 	  $(".dropdown div a").removeClass("active");
