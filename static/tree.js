@@ -11,7 +11,6 @@ function execute() {
     $("#nav-relation .context-loading").removeClass("d-none");
     // call relationship API
     $.getJSON("/relationship", {"address": address, "context": context});
-    console.log("relationship");
   }
 }
 
@@ -30,14 +29,8 @@ function showBitmap(data, nodes, network) {
     pos.y -= 60;
     pos = network.canvasToDOM(pos);
     $("#" + node["id"]).css({left: pos.x, top: pos.y});
-    $("#" + node["id"]).text(hit);
+    $("#" + node["id"]).text("[" + hit + "]");
   });
-  for (var addr in data) {
-    try {
-      document.getElementById(addr).innerHTML = addr + " [" + data[addr]["hit"] + "]";
-    } catch (e) {
-    }
-  }
 }
 
 function showRelationship(data) {
@@ -54,7 +47,7 @@ function showCPUState(data) {
   }
 }
 
-function DOT2CFG(DOTstring) {
+function DOT2CFG(DOTstring, addrFix) {
   var parsedData = vis.parseDOTNetwork(DOTstring);
 
   var data = {
@@ -77,7 +70,11 @@ function DOT2CFG(DOTstring) {
     },
   };
 
-  // you can extend the options like a normal JSON variable:
+  // fix edge address
+  data.edges.map(function (edge) {
+    edge.from = "0x" + (parseInt(edge.from) + addrFix).toString(16);
+    edge.to = "0x" + (parseInt(edge.to) + addrFix).toString(16);
+  });
 
   var level = {}
   if (data.edges.length)
@@ -96,6 +93,9 @@ function DOT2CFG(DOTstring) {
 
   for (i in data.nodes) {
     node = data.nodes[i];
+    // fix node address
+    node.id = "0x" + (parseInt(node.id) + addrFix).toString(16);
+    // set layout
     node.color = {
       border: "#000000",
       background: "#FFFFFF",

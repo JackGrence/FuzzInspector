@@ -16,8 +16,8 @@ app = Flask(__name__)
 def hello_world():
     address = int(request.args.get('address'), 0)
     b_info = block_info.get_func_block(address)
-    dot = block_info.get_basic_block_func_dot(address)
-    return flask.render_template('index.html', address=hex(address), block_info=b_info, dot=dot)
+    fix, dot = block_info.get_basic_block_func_dot(address)
+    return flask.render_template('index.html', address=hex(address), addr_fix=fix, dot=dot)
 
 
 @app.route('/bitmap/get', methods=['GET', 'POST'])

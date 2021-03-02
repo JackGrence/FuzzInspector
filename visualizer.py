@@ -435,7 +435,9 @@ class BinaryInfo:
 
     def get_basic_block_func_dot(self, addr):
         bin_addr, binary = self.addr2bin(addr)
-        return json.dumps(binary.get_basic_block_func_dot(bin_addr))
+        result = [binary.addr_r2_to_ql(0)]
+        result.append(json.dumps(binary.get_basic_block_func_dot(bin_addr)))
+        return result
 
 
 class BlockParser:

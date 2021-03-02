@@ -115,7 +115,8 @@
     var DOTstring = {{ dot | safe }};
     DOTstring = DOTstring.replaceAll('\\l', '\n');
     DOTstring = DOTstring.replaceAll('\\"', '');
-    var result = DOT2CFG(DOTstring)
+    var addrFix = {{ addr_fix }};
+    var result = DOT2CFG(DOTstring, addrFix)
     var network = result[0];
     var nodes = result[1].nodes;
     let cpustateCnt = -1;
