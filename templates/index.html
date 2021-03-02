@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='tree.css') }}"></link>
+  <link rel="stylesheet" href="{{ url_for('static', filename='./bootstrap-4.6.0-dist/css/bootstrap.min.css') }}"></link>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="{{ url_for('static', filename='./bootstrap-4.6.0-dist/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='./bootstrap-4.6.0-dist/js/bootstrap.min.js') }}"></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="{{ url_for('static', filename='tree.js') }}"></script>
+  <script src="{{ url_for('static', filename='vis-network.min.js') }}"></script>
+</head>
+
+<body>
+<nav class="navbar navbar-light bg-light fixed-top">
+  <a class="navbar-brand">Navbar</a>
+  <form class="form-inline">
+    <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
+    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+  </form>
+</nav>
+<div class="overlap">
+<div id="mynetwork"></div>
+<div id="hitCntDiv" class="text-center">
+  <div class="hit-box">1000</div>
+</div>
+</div>
+<div class="modal fade" id="visualContent" tabindex="-1" role="dialog" aria-labelledby="visualContentTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="visualContentLongTitle">Modal title</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+	<div class="container">
+	  <div class="row">
+	    <div class="col">
+	      <div class="dropdown w-100">
+		<button class="btn btn-secondary dropdown-toggle w-100" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		  Dropdown button
+		</button>
+		<div id="dropdownDisasMenu" class="dropdown-menu" aria-labelledby="dropdownDisasToggle">
+		  <a class="dropdown-item" href="#">Action</a>
+		  <a class="dropdown-item" href="#">Another action</a>
+		  <a class="dropdown-item" href="#">Something else here</a>
+		</div>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="row mt-3">
+	    <div class="col">
+	      <nav>
+		<div class="nav nav-tabs" id="nav-tab" role="tablist" select="CPUState">
+		  <a class="nav-link active" id="nav-cpustate-tab" data-toggle="tab" href="#nav-cpustate" role="tab" aria-controls="nav-cpustate" aria-selected="true">CPUState</a>
+		  <a class="nav-link" id="nav-relation-tab" data-toggle="tab" href="#nav-relation" role="tab" aria-controls="nav-relation" aria-selected="false">Relationship</a>
+		</div>
+	      </nav>
+	      <div class="tab-content" id="nav-tabContent">
+		<div class="tab-pane fade show active" id="nav-cpustate" role="tabpanel" aria-labelledby="nav-cpustate-tab">
+		  <div class="context-container mt-3">
+		    <div id="divCPUState" class="context">
+		      CPUState
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<div class="tab-pane fade" id="nav-relation" role="tabpanel" aria-labelledby="nav-relation-tab">
+		  <div class="context-container mt-3">
+		    <div id="divRelation" class="context mt-3">
+		      Relationship
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="row mt-3">
+	    <div class="col">
+	      <div class="input-group">
+		<input id="inputCtx" type="text" class="form-control" placeholder="default backtrace hex byte str" aria-label="" aria-describedby="basic-addon1">
+		<div class="input-group-prepend">
+		  <button class="btn btn-outline-secondary" type="button" onclick="execute()">Execute</button>
+		</div>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+      </div>
+      <div class="modal-footer">
+	<div class="container">
+	  <div class="input-group">
+	    <input id="inputConstraint" type="text" class="form-control" placeholder="str_offset_value" aria-label="" aria-describedby="basic-addon1">
+	    <div class="input-group-prepend">
+	      <button id="btnConstraint" class="btn btn-outline-secondary" type="button" onclick="prepareConstraint()">Constraint</button>
+	    </div>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div>
+</div>
+  <script>
+    var DOTstring = {{ dot | safe }};
+    DOTstring = DOTstring.replaceAll('\\l', '\n');
+    DOTstring = DOTstring.replaceAll('\\"', '');
+    var result = DOT2CFG(DOTstring)
+    var network = result[0];
+    var nodes = result[1].nodes;
+    let cpustateCnt = -1;
+    let relationshipCnt = -1;
+
+    setInterval(function(){
+      // get hit count by address
+      blocks = nodes.map(function (i){return i['id']}).join('_');
+      $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
+	// show hit count
+	showBitmap(data["bitmap"], nodes, network);
+	if (cpustateCnt != data["cpustate_cnt"]) {
+	  showCPUState(data["cpustate"]);
+	  cpustateCnt = data["cpustate_cnt"];
+	}
+	if (relationshipCnt != data["relationship_cnt"]) {
+	  showRelationship(data["relationship"]);
+	  relationshipCnt = data["relationship_cnt"];
+	}
+      });
+    }, 1000);
+  </script>
+</body>

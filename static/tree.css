@@ -1,0 +1,70 @@
+.context {
+  position: relative;
+  overflow: auto;
+  word-wrap: break-word;
+  height: calc(50vh);
+  z-index:1;
+}
+
+.loading {
+  position: absolute;
+  left: calc(50% - 16px);
+  top: calc(50% - 16px);
+}
+
+.context-container {
+  position: relative;
+}
+
+.context-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(6, 6, 6, 0.04);
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.overlap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: calc(100vh - 76px);
+  margin-top: 66px;
+}
+
+#mynetwork {
+  position: relative;
+  padding-left: 10px;
+  padding-right: 10px;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+#hitCntDiv {
+  position: absolute;
+  padding-left: 10px;
+  padding-right: 10px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.hit-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+* {
+  font-family: Lucida Console, Monaco5, monospace;
+}
+
+.dropdown-menu {
+  max-height: 50vh;
+  overflow-y: auto;
+}
