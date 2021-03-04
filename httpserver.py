@@ -39,7 +39,10 @@ def bitmap_get():
 @app.route('/basicblock/disassemble')
 def assembly_get():
     address = int(request.args.get('address'), 0)
-    result = block_info.basicblock_disasm(address)
+    result = {}
+    result['disasm'] = block_info.basicblock_disasm(address)
+    seeds = bitmap.data['bitmap'].get(hex(address), {'seed': []})['seed']
+    result['seeds'] = seeds
     return Response(json.dumps(result),  mimetype='application/json')
 
 
@@ -50,7 +53,10 @@ def basicblock_cpustate():
     context = context.split(' ') if context else ['default']
     context = context
     basicblock = block_info.get_block_addr(address)
+    seed = request.args.get('seed').strip()
     seeds = bitmap.data['bitmap'][basicblock]['seed']
+    if seed in seeds:
+        seeds = [seed]
     worker = BinaryWorker(BinaryWorker.ACTION_CPUSTATE,
                           address=address,
                           basicblock=basicblock,
@@ -81,7 +87,10 @@ def relationship():
     context = request.args.get('context').strip()
     context = context.split(' ') if context else []
     basicblock = block_info.get_block_addr(address)
+    seed = request.args.get('seed').strip()
     seeds = bitmap.data['bitmap'][basicblock]['seed']
+    if seed in seeds:
+        seeds = [seed]
     worker = BinaryWorker(BinaryWorker.ACTION_RELATION,
                           address=address,
                           basicblock=basicblock,

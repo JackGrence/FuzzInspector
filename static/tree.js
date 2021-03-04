@@ -1,16 +1,18 @@
 function execute() {
   let address = $("#dropdownDisasToggle").text().split(":")[0];
+  let seed = $("#dropdownSeedToggle").text();
   let context = $("#inputCtx").val();
+  let requestData = {"address": address, "context": context, "seed": seed};
   if ($("#nav-tab").attr("select") == "CPUState") {
     // display loading block
     $("#nav-cpustate .context-loading").removeClass("d-none");
     // call CPUState API
-    $.getJSON("/cpustate", {"address": address, "context": context});
+    $.getJSON("/cpustate", requestData);
   } else {
     // display loading block
     $("#nav-relation .context-loading").removeClass("d-none");
     // call relationship API
-    $.getJSON("/relationship", {"address": address, "context": context});
+    $.getJSON("/relationship", requestData);
   }
 }
 
@@ -122,7 +124,8 @@ function DOT2CFG(DOTstring, addrFix) {
       // prepare disassembly
       $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
 	// map disassembly to items
-	$("#dropdownDisasMenu").html(data.map(function (x) {
+	disasm = data["disasm"];
+	$("#dropdownDisasMenu").html(disasm.map(function (x) {
 	  var result = "";
 	  result += "0x" + x["offset"].toString(16);
 	  result += ":\t" + x["opcode"];
@@ -130,16 +133,35 @@ function DOT2CFG(DOTstring, addrFix) {
 	  return item;
 	}).join(""));
 	// set first
-	let first = "0x" + data[0]["offset"].toString(16);
-	first += ":\t" + data[0]["opcode"];
+	let first = "0x" + disasm[0]["offset"].toString(16);
+	first += ":\t" + disasm[0]["opcode"];
 	$("#dropdownDisasToggle").text(first);
 	$("#dropdownDisasToggle").val(first);
-	$($(".dropdown div a")[0]).addClass("active");
+	$($("#dropdownDisasMenu a")[0]).addClass("active");
 	// regist click event
-	$(".dropdown div a").click(function(){
+	$("#dropdownDisasMenu a").click(function(){
 	  $("#dropdownDisasToggle").text($(this).text());
 	  $("#dropdownDisasToggle").val($(this).text());
-	  $(".dropdown div a").removeClass("active");
+	  $("#dropdownDisasMenu a").removeClass("active");
+	  $(this).addClass("active");
+	});
+	// map seeds to items
+	seeds = data["seeds"];
+	$("#dropdownSeedMenu").html(seeds.map(function (x) {
+	  var result = x;
+	  var item = '<a class="dropdown-item" href="#">' + result + '</a>';
+	  return item;
+	}).join(""));
+	// set first
+	first = seeds[0];
+	$("#dropdownSeedToggle").text(first);
+	$("#dropdownSeedToggle").val(first);
+	$($("#dropdownSeedMenu a")[0]).addClass("active");
+	// regist click event
+	$("#dropdownSeedMenu a").click(function(){
+	  $("#dropdownSeedToggle").text($(this).text());
+	  $("#dropdownSeedToggle").val($(this).text());
+	  $("#dropdownSeedMenu a").removeClass("active");
 	  $(this).addClass("active");
 	});
       });
