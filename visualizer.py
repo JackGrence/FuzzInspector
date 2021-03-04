@@ -13,12 +13,138 @@ import hexdump
 import signal
 
 
-class CPUStateHelper:
+class VisualizeHelper:
+
+    STATUS_CHILD = 0
+    STATUS_PARENT = 1
+
+    '''
+    child return STATUS_CHILD, mutated data
+    parent return STATUS_PARENT, child's stdout
+    '''
+    @classmethod
+    def run_target(cls, data):
+        # TODO: stdin or do it in ql.py
+        # fork stuff...
+        r, w = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.dup2(w, 1)
+            os.close(r)
+            os.close(w)
+            return cls.STATUS_CHILD, data
+        else:
+            os.close(w)
+            result = b''
+            buf = os.read(r, 1024)
+            while len(buf) != 0:
+                result += buf
+                buf = os.read(r, 1024)
+        return cls.STATUS_PARENT, result
+
+    '''
+    Find unmutable bytes by colorize
+    '''
+    @classmethod
+    def find_unmutable(cls, inp):
+        unmutable = []
+        que = [[inp, 0, len(inp)]]
+        while True:
+            if not que:
+                break
+            data, l, r = que.pop()
+            print(data, l, r)
+            new_data = data[:l] + os.urandom(r - l) + data[r:]
+            status, result = cls.run_target(new_data)
+            if status == cls.STATUS_CHILD:
+                # let child return to ql.py
+                return status, result
+            if not cls.parse_visresult(result):
+                if r - l <= 1:
+                    unmutable.append(l)
+                    continue
+                # miss, find the way
+                m = (l + r) // 2
+                que.append([data, l, m])
+                que.append([data, m, r])
+        return status, sorted(unmutable)
+
+    '''
+    Find mutable bytes
+    '''
+    @classmethod
+    def find_mutable(cls, inp, expect, unmutable=[]):
+        mutable = []
+        que = [[inp, 0, len(inp)]]
+        while True:
+            if not que:
+                break
+            data, l, r = que.pop()
+            print(data, l, r)
+            new_data = data[:l] + os.urandom(r - l) + data[r:]
+            new_data = list(new_data)
+            for i in unmutable:
+                new_data[i] = data[i]
+            new_data = bytes(new_data)
+            status, result = cls.run_target(new_data)
+            if status == cls.STATUS_CHILD:
+                # let child return to ql.py
+                return status, result
+            result = ''.join(cls.parse_visresult(result))
+            if result != expect:
+                if r - l <= 1:
+                    mutable.append(l)
+                    continue
+                # miss, find the way
+                m = (l + r) // 2
+                que.append([data, l, m])
+                que.append([data, m, r])
+        return status, sorted(mutable)
+
+    @classmethod
+    def relationship(cls, ql, inp):
+        # colorize
+        status, result = cls.find_unmutable(inp)
+        if status == cls.STATUS_CHILD:
+            # let child return to ql.py
+            return result
+        unmutable = result
+        # interesting bytes
+        status, result = cls.run_target(inp)
+        if status == cls.STATUS_CHILD:
+            return result
+        expect = ''.join(cls.parse_visresult(result))
+        status, result = cls.find_mutable(inp, expect, unmutable=unmutable)
+        if status == cls.STATUS_CHILD:
+            return result
+        mutable = result
+
+        inp_hexdump = hexdump.hexdump(inp, result='return')
+        inp_hexdump = inp_hexdump.replace('\n', '<br>\n')
+        result = f'visualizer_afl:\n'
+        result += f'Address: {hex(ql.reg.pc)}<br>\n'
+        result += f'Unmutable:<br>\n{unmutable}<br>\n'
+        result += f'Mutable:<br>\n{mutable}<br>\n'
+        result += f'Expect context:<br>\n{expect}<br>\n'
+        result += f'Input hexdump:<br>\n{inp_hexdump}<br>\n'
+        result += f'VISEND'
+        print(result)
+        sys.stdout.flush()
+        sys.exit(0)
+        # output
+        return inp
+
+    @classmethod
+    def parse_visresult(self, output):
+        output = output.split(b'visualizer_afl:')
+        output = filter(lambda x: b'VISEND' in x, output)
+        output = list(map(lambda x: x.split(b'VISEND')[0].decode(), output))
+        return output
 
     # str_5_0x1234, byte_6_0x1234, u64_8_0x1234, u32_4_0x1234, u16_2_0x1234
     # TODO: bootstrap table
     @classmethod
-    def html(cls, ql):
+    def cpustate(cls, ql):
         result = ''
         try:
             for ctx in ql.viscontext:
@@ -238,7 +364,7 @@ class BinaryWorker:
         filename = self.seeds[0]
         # python ql.py inputfile debug_level trace
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
-        addr_list = self.parse_visresult(addr_list.stdout)
+        addr_list = VisualizeHelper.parse_visresult(addr_list.stdout)
 
         # last one is mapinfo
         bin_info.init(addr_list[-1])
@@ -263,89 +389,16 @@ class BinaryWorker:
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
                                  str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
-        result = self.parse_visresult(result.stdout)
+        result = VisualizeHelper.parse_visresult(result.stdout)
 
         return result if result else ''
 
-    '''
-    Return unmutable offsets
-    '''
-    def colorize(self, buf, l, r):
-        old_buf = buf[:]
-        buf = buf[:l] + os.urandom(r - l) + buf[r:]
-        filename = '/tmp/vis.cur'
-        with open(filename, 'wb') as f:
-            f.write(buf)
-        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 str(self.address), *self.context],
-                                stdout=subprocess.PIPE)
-        if self.parse_visresult(result.stdout):
-            # still hit address, mutable
-            return []
-        else:
-            # path change, find unmutable part
-            if r - l <= 1:
-                return [l]
-            m = (l + r) // 2
-            result = self.colorize(old_buf, l, m)
-            result += self.colorize(old_buf, m, r)
-            return result
-
-    def exec_context(self, buf):
-        filename = '/tmp/vis.cur'
-        with open(filename, 'wb') as f:
-            f.write(buf)
-        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 str(self.address), *self.context],
-                                stdout=subprocess.PIPE)
-        return self.parse_visresult(result.stdout)
-
-    def exec_context_rand(self, buf, l, r, unmutable=[]):
-        old_buf = list(buf[:])
-        buf = buf[:l] + os.urandom(r - l) + buf[r:]
-        buf = list(buf)
-        for i in unmutable:
-            buf[i] = old_buf[i]
-        buf = bytes(buf)
-        return self.exec_context(buf)
-
-    '''
-    Return interesting(context changed) offsets
-    '''
-    def interesting(self, buf, l, r, expect, unmutable=[]):
-        result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
-        while not result:
-            result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
-
-        if ''.join(result) == ''.join(expect):
-            # context still the same, return []
-            return []
-        else:
-            # context changed, find interesting part
-            if r - l <= 1:
-                return [l]
-            m = (l + r) // 2
-            result = self.interesting(buf, l, m, expect, unmutable=unmutable)
-            result += self.interesting(buf, m, r, expect, unmutable=unmutable)
-            return result
-
     def relationship(self):
         filename = self.seeds[0]
-        with open(filename, 'rb') as f:
-            buf = f.read()
-        # colorize
-        unmutable = self.colorize(buf, 0, len(buf))
-        # interesting bytes
-        expect = self.exec_context(buf)
-        offset = self.interesting(buf, 0, len(buf), expect, unmutable=unmutable)
-        # output
-        result = f'{hex(self.address)}<br>'
-        result += f'{unmutable}<br>'
-        result += f'{offset}<br>'
-        result += f'{"".join(expect)}<br>'
-        result += hexdump.hexdump(buf, result='return').replace('\n', '<br>')
-        result += '<br>'
-        return result
+        result = subprocess.run(['python', 'ql.py', filename, '0', 'relation',
+                                 str(self.address), *self.context],
+                                stdout=subprocess.PIPE)
+        return VisualizeHelper.parse_visresult(result.stdout)
 
     def parse_visresult(self, output):
         output = output.split(b'visualizer_afl:')
@@ -394,7 +447,7 @@ class BinaryInfo:
                 addr >= self.last_info[0] and addr < self.last_info[1]):
             result_info = self.last_info
         else:
-            result_info = CPUStateHelper.map_search(addr, self.map_info)
+            result_info = VisualizeHelper.map_search(addr, self.map_info)
 
         self.last_info = result_info
 
