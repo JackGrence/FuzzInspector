@@ -30,7 +30,7 @@ function showBitmap(data, nodes, network) {
     let pos = network.getPosition(node["id"]);
     pos.y -= 60;
     pos = network.canvasToDOM(pos);
-    $("#" + node["id"]).css({left: pos.x, top: pos.y});
+    $("#" + node["id"]).animate({left: pos.x, top: pos.y});
     $("#" + node["id"]).text("[" + hit + "]");
   });
 }
@@ -166,14 +166,6 @@ function DOT2CFG(DOTstring, addrFix) {
 	});
       });
     }
-  });
-
-  network.on("dragStart", function (data) {
-    $("#hitCntDiv div").addClass("d-none");
-  });
-
-  network.on("dragEnd", function (data) {
-    $("#hitCntDiv div").removeClass("d-none");
   });
 
   // create hit counter box
