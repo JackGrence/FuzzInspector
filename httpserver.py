@@ -15,7 +15,6 @@ app = Flask(__name__)
 @app.route('/')
 def hello_world():
     address = int(request.args.get('address'), 0)
-    b_info = block_info.get_func_block(address)
     fix, dot = block_info.get_basic_block_func_dot(address)
     return flask.render_template('index.html', address=hex(address), addr_fix=fix, dot=dot)
 
@@ -23,7 +22,10 @@ def hello_world():
 @app.route('/bitmap/get', methods=['GET', 'POST'])
 def bitmap_get():
     result = dict(bitmap.data)
+    result['seeds'] = []
+    result['path'] = []
     blocks = request.values.get('blocks')
+    seed = request.values.get('seed')
     if blocks:
         blocks = blocks.split('_');
         blocks = map(lambda x: hex(int(x, 0)), blocks)
@@ -33,6 +35,12 @@ def bitmap_get():
                 result['bitmap'][block] = {'hit': 0}
             else:
                 result['bitmap'][block] = {'hit': bitmap.data['bitmap'][block]['hit']}
+                # set seeds for choose path
+                if not result['seeds']:
+                    result['seeds'] = sorted(bitmap.data['bitmap'][block]['seeds'])
+                # set current path
+                if seed in bitmap.data['bitmap'][block]['seeds']:
+                    result['path'].append(block)
     return Response(json.dumps(result),  mimetype='application/json')
 
 
@@ -41,8 +49,9 @@ def assembly_get():
     address = int(request.args.get('address'), 0)
     result = {}
     result['disasm'] = block_info.basicblock_disasm(address)
-    seeds = bitmap.data['bitmap'].get(hex(address), {'seed': []})['seed']
-    result['seeds'] = seeds
+    seeds = bitmap.data['bitmap'].get(hex(address), {'seeds': []})['seeds']
+    # convert seeds set to sorted list
+    result['seeds'] = sorted(seeds)
     return Response(json.dumps(result),  mimetype='application/json')
 
 
@@ -54,9 +63,11 @@ def basicblock_cpustate():
     context = context
     basicblock = block_info.get_block_addr(address)
     seed = request.args.get('seed').strip()
-    seeds = bitmap.data['bitmap'][basicblock]['seed']
+    seeds = bitmap.data['bitmap'][basicblock]['seeds']
     if seed in seeds:
         seeds = [seed]
+    # convert seeds set to sorted list
+    seeds = sorted(seeds)
     worker = BinaryWorker(BinaryWorker.ACTION_CPUSTATE,
                           address=address,
                           basicblock=basicblock,
@@ -88,9 +99,11 @@ def relationship():
     context = context.split(' ') if context else []
     basicblock = block_info.get_block_addr(address)
     seed = request.args.get('seed').strip()
-    seeds = bitmap.data['bitmap'][basicblock]['seed']
+    seeds = bitmap.data['bitmap'][basicblock]['seeds']
     if seed in seeds:
         seeds = [seed]
+    # convert seeds set to sorted list
+    seeds = sorted(seeds)
     worker = BinaryWorker(BinaryWorker.ACTION_RELATION,
                           address=address,
                           basicblock=basicblock,

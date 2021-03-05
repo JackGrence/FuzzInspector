@@ -13,7 +13,16 @@
 
 <body>
 <nav class="navbar navbar-light bg-light fixed-top">
-  <a class="navbar-brand">Navbar</a>
+  <div class="dropdown">
+    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownCurSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+      Display Seed
+    </button>
+    <div id="dropdownCurSeedMenu" class="dropdown-menu" aria-labelledby="dropdownCurSeedToggle">
+      <a class="dropdown-item" href="#">Action</a>
+      <a class="dropdown-item" href="#">Another action</a>
+      <a class="dropdown-item" href="#">Something else here</a>
+    </div>
+  </div>
   <form class="form-inline">
     <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
     <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
@@ -137,9 +146,11 @@
     setInterval(function(){
       // get hit count by address
       blocks = nodes.map(function (i){return i['id']}).join('_');
-      $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
+      seed = $("#dropdownCurSeedToggle").text();
+      $.post("/bitmap/get", {"blocks": blocks, "seed": seed}, function(data, status){
 	// show hit count
 	showBitmap(data["bitmap"], nodes, network);
+	drawPath(data["seeds"], data["path"], seed);
 	if (cpustateCnt != data["cpustate_cnt"]) {
 	  showCPUState(data["cpustate"]);
 	  cpustateCnt = data["cpustate_cnt"];

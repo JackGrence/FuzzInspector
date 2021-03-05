@@ -357,7 +357,7 @@ class BinaryWorker:
         bitmap = {
           STR_ADDR1: {
             'hit': N
-            'seed': []
+            'seeds': set()
           }
         }
         '''
@@ -371,11 +371,11 @@ class BinaryWorker:
         for addr in addr_list[:-1]:
             addr = hex(int(addr, 0))
             if addr not in result:
-                result[addr] = {'hit': 0, 'seed': []}
+                result[addr] = {'hit': 0, 'seeds': set()}
                 bin_info.update(int(addr, 0))
             result[addr]['hit'] += 1
-            if filename not in result[addr]['seed']:
-                result[addr]['seed'].append(filename)
+            if filename not in result[addr]['seeds']:
+                result[addr]['seeds'].add(filename)
 
         return result
 

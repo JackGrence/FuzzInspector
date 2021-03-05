@@ -1,3 +1,13 @@
+function drawPath(seeds, path, defaultSeed) {
+  initDropdown("dropdownCurSeed", seeds, function (x) {
+    return x;
+  }, defaultSeed);
+  $("#hitCntDiv div").removeClass("cur-path");
+  path.map(function(x) {
+    $("#" + x).addClass("cur-path");
+  });
+}
+
 function execute() {
   let address = $("#dropdownDisasToggle").text().split(":")[0];
   let seed = $("#dropdownSeedToggle").text();
@@ -123,47 +133,17 @@ function DOT2CFG(DOTstring, addrFix) {
       $("#visualContentLongTitle").text("Address: " + address);
       // prepare disassembly
       $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
-	// map disassembly to items
-	disasm = data["disasm"];
-	$("#dropdownDisasMenu").html(disasm.map(function (x) {
+	// init disassembly dropdown
+	initDropdown("dropdownDisas", data["disasm"], function (x) {
 	  var result = "";
 	  result += "0x" + x["offset"].toString(16);
 	  result += ":\t" + x["opcode"];
-	  var item = '<a class="dropdown-item" href="#">' + result + '</a>';
-	  return item;
-	}).join(""));
-	// set first
-	let first = "0x" + disasm[0]["offset"].toString(16);
-	first += ":\t" + disasm[0]["opcode"];
-	$("#dropdownDisasToggle").text(first);
-	$("#dropdownDisasToggle").val(first);
-	$($("#dropdownDisasMenu a")[0]).addClass("active");
-	// regist click event
-	$("#dropdownDisasMenu a").click(function(){
-	  $("#dropdownDisasToggle").text($(this).text());
-	  $("#dropdownDisasToggle").val($(this).text());
-	  $("#dropdownDisasMenu a").removeClass("active");
-	  $(this).addClass("active");
-	});
-	// map seeds to items
-	seeds = data["seeds"];
-	$("#dropdownSeedMenu").html(seeds.map(function (x) {
-	  var result = x;
-	  var item = '<a class="dropdown-item" href="#">' + result + '</a>';
-	  return item;
-	}).join(""));
-	// set first
-	first = seeds[0];
-	$("#dropdownSeedToggle").text(first);
-	$("#dropdownSeedToggle").val(first);
-	$($("#dropdownSeedMenu a")[0]).addClass("active");
-	// regist click event
-	$("#dropdownSeedMenu a").click(function(){
-	  $("#dropdownSeedToggle").text($(this).text());
-	  $("#dropdownSeedToggle").val($(this).text());
-	  $("#dropdownSeedMenu a").removeClass("active");
-	  $(this).addClass("active");
-	});
+	  return result;
+	}, "none");
+	// init seed dropdown
+	initDropdown("dropdownSeed", data["seeds"], function (x) {
+	  return x;
+	}, "none");
       });
     }
   });
@@ -180,4 +160,28 @@ function DOT2CFG(DOTstring, addrFix) {
   });
 
   return [network, data];
+}
+
+function initDropdown(id, data, format, activeItem) {
+  // map to items
+  $("#" + id + "Menu").html(data.map(function (x) {
+    var result = format(x);
+    var item = '<a class="dropdown-item" href="#">' + result + '</a>';
+    return item;
+  }).join(""));
+  // set first or default
+  let defaultItem = $("#" + id + "Menu a:contains('" + activeItem + "')");
+  if (defaultItem.length == 0) {
+    defaultItem = $($("#" + id + "Menu a")[0]);
+  }
+  $("#" + id + "Toggle").text(defaultItem.text());
+  $("#" + id + "Toggle").val(defaultItem.text());
+  defaultItem.addClass("active");
+  // regist click event
+  $("#" + id + "Menu a").click(function(){
+    $("#" + id + "Toggle").text($(this).text());
+    $("#" + id + "Toggle").val($(this).text());
+    $("#" + id + "Menu a").removeClass("active");
+    $(this).addClass("active");
+  });
 }
