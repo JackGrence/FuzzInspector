@@ -232,7 +232,7 @@ class VisualizeHelper:
     def hex(cls, ql, length, addr):
         result = f'{hex(addr)}: '
         result += ql.mem.read(addr, length).hex()
-        result += '<br>'
+        result += '<br>\n'
         return result
 
     @classmethod
@@ -243,16 +243,16 @@ class VisualizeHelper:
         item_size = unpack // 8
         for i in range(length):
             value = unpack_helper[unpack](ql.mem.read(addr, item_size))
-            result += f'{hex(addr)} = {hex(value)}<br>'
+            result += f'{hex(addr)} = {hex(value)}<br>\n'
             addr += item_size
         return result
 
     @classmethod
     def byte(cls, ql, length, addr):
-        result = f'{hex(addr)}:<br>'
+        result = f'{hex(addr)}:<br>\n'
         result += hexdump.hexdump(ql.mem.read(addr, length), result='return')
-        result += '<br>'
-        result = result.replace('\n', '<br>')
+        result += '<br>\n'
+        result = result.replace('\n', '<br>\n')
         return result
 
     @classmethod
@@ -260,14 +260,14 @@ class VisualizeHelper:
         result = ''
         for i in range(length):
             s = ql.mem.string(addr)
-            result += f'{hex(addr)}: {s}<br>'
+            result += f'{hex(addr)}: {s}<br>\n'
             addr += len(s) + 1
         return result
 
     @classmethod
     def reg(cls, ql, name):
         value = ql.reg.read(name)
-        return f'{name} = {hex(value)}<br>'
+        return f'{name} = {hex(value)}<br>\n'
 
     @classmethod
     def stack(cls, ql):
@@ -277,7 +277,7 @@ class VisualizeHelper:
             name = ql.reg.sp + i * num_bytes
             value = ql.mem.read(name, num_bytes)
             value = ql.unpack(value)
-            result += f'{hex(name)} = {hex(value)}<br>'
+            result += f'{hex(name)} = {hex(value)}<br>\n'
         return result
 
     @classmethod
@@ -369,7 +369,11 @@ class BinaryWorker:
         # last one is mapinfo
         bin_info.init(addr_list[-1])
         for addr in addr_list[:-1]:
-            addr = hex(int(addr, 0))
+            try:
+                addr = hex(int(addr, 0))
+            except ValueError:
+                print(addr)
+                continue
             if addr not in result:
                 result[addr] = {'hit': 0, 'seeds': set()}
                 bin_info.update(int(addr, 0))
