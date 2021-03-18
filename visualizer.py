@@ -342,12 +342,18 @@ class BinaryWorker:
         total [constraint...] (2 [constraint1] [constraint2])
         '''
         # context to afl++
-        result = f'{len(self.context)} '
-        for ctx in self.context:
-            data = self.parse_constraint(ctx)
-            result += f'{data} '
+        try:
+            result = f'{len(self.context)} '
+            for ctx in self.context:
+                data = self.parse_constraint(ctx)
+                result += f'{data} '
+        except:
+            # invalid format, skip and log
+            # TODO: log error
+            return
         bitmapdata['constraint'] = result
         # SIGUSR2 inform afl++
+        # TODO: specify a fuzzer not all, maybe registing or binding
         pids = subprocess.check_output(['pidof', 'afl-fuzz']).split(b' ')
         for pid in map(int, pids):
             os.kill(pid, signal.SIGUSR2)
