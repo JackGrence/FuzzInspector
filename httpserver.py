@@ -6,10 +6,13 @@ from flask import Response
 from visualizer import BitmapReceiver
 from visualizer import BlockParser
 from visualizer import BinaryWorker
+from visualizer import VisualizeHelper
 bitmap = BitmapReceiver()
 bitmap.start()
 block_info = bitmap.bin_info
 app = Flask(__name__)
+
+VisualizeHelper.init_from_afl_output(bitmap)
 
 
 @app.route('/')

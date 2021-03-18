@@ -11,12 +11,21 @@ import json
 import queue
 import hexdump
 import signal
+import glob
 
 
 class VisualizeHelper:
 
     STATUS_CHILD = 0
     STATUS_PARENT = 1
+
+    @classmethod
+    def init_from_afl_output(cls, bitmap_receiver):
+        afl_output_dir = os.getenv('AFL_OUTPUT_DIR')
+        for fn in glob.glob(f'{afl_output_dir}/visualizer/*'):
+            worker = BinaryWorker(BinaryWorker.ACTION_BITMAP,
+                                  seeds=[fn])
+            bitmap_receiver.queue.put(worker)
 
     '''
     child return STATUS_CHILD, mutated data
