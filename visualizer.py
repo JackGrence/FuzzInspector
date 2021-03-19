@@ -316,6 +316,7 @@ class BinaryWorker:
         if self.action == BinaryWorker.ACTION_BITMAP:
             # new or use old
             data['bitmap'] = self.bitmap(data.get('bitmap', {}), bin_info)
+            data['bitmap_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
             # always new
             data['cpustate'] = self.cpustate(bin_info)
@@ -431,11 +432,48 @@ class BitmapReceiver (threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.queue = queue.Queue()
-        self.data = {'bitmap': {}}
+        self.data = {'bitmap': {},
+                     'bitmap_cnt': 0,
+                     'cpustate_cnt': 0,
+                     'relationship_cnt': 0}
         self.bin_info = BinaryInfo()
 
+    def hit_info(self, blocks):
+        result = {}
+        result['addrs'] = {}
+        # if block is empty, give it all
+        if not blocks:
+            blocks = self.data['bitmap'].keys()
+        # prepare hit, seeds
+        for block in blocks:
+            if block not in self.data['bitmap']:
+                result['addrs'][block] = {'hit': 0}
+            else:
+                result['addrs'][block] = {'hit': self.data['bitmap'][block]['hit']}
+                # set seeds for choosing path
+                # only set at first hitted block
+                if 'seeds' not in result:
+                    result['seeds'] = sorted(self.data['bitmap'][block]['seeds'])
+        return result
+
+    def to_json(self, blocks, bitmap_cnt, cpustate_cnt, relationship_cnt):
+        # init
+        result = dict(self.data)
+        # bitmap
+        if self.data['bitmap_cnt'] == bitmap_cnt:
+            result['bitmap'] = None
+        else:
+            result['bitmap'] = self.hit_info(blocks)
+        # cpustate
+        if self.data['cpustate_cnt'] == cpustate_cnt:
+            result['cpustate'] = None
+        # relationship
+        if self.data['relationship_cnt'] == relationship_cnt:
+            result['relationship'] = None
+        return json.dumps(result)
+
     def run(self):
-        cnt = 0
+        cnt = 1
         while True:
             worker = self.queue.get()
             worker.run(self.data, cnt, self.bin_info)

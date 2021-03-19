@@ -140,25 +140,29 @@
     var result = DOT2CFG(DOTstring, addrFix)
     var network = result[0];
     var nodes = result[1].nodes;
-    let cpustateCnt = -1;
-    let relationshipCnt = -1;
+    let bitmapCnt = 0;
+    let cpustateCnt = 0;
+    let relationshipCnt = 0;
 
     setInterval(function(){
       // get hit count by address
       blocks = nodes.map(function (i){return i['id']}).join('_');
       seed = $("#dropdownCurSeedToggle").text();
-      $.post("/bitmap/get", {"blocks": blocks, "seed": seed}, function(data, status){
-	// show hit count
-	showBitmap(data["bitmap"], nodes, network);
-	drawPath(data["seeds"], data["path"], seed);
-	if (cpustateCnt != data["cpustate_cnt"]) {
-	  showCPUState(data["cpustate"]);
-	  cpustateCnt = data["cpustate_cnt"];
-	}
-	if (relationshipCnt != data["relationship_cnt"]) {
-	  showRelationship(data["relationship"]);
-	  relationshipCnt = data["relationship_cnt"];
-	}
+      payload = {"blocks": blocks,
+		 "bitmapCnt": bitmapCnt,
+		 "cpustateCnt": cpustateCnt,
+		 "relationshipCnt": relationshipCnt};
+      $.post("/bitmap/get", payload, function(data, status){
+	hitboxAnimate(nodes, network);
+	// show hit info
+	showBitmap(data["bitmap"], nodes, network, seed);
+	bitmapCnt = data["bitmap_cnt"]
+	// show CPUState
+	showCPUState(data["cpustate"]);
+	cpustateCnt = data["cpustate_cnt"];
+	// show Relationship
+	showRelationship(data["relationship"]);
+	relationshipCnt = data["relationship_cnt"];
       });
     }, 1000);
   </script>

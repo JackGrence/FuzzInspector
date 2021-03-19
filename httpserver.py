@@ -22,8 +22,58 @@ def hello_world():
     return flask.render_template('index.html', address=hex(address), addr_fix=fix, dot=dot)
 
 
+@app.route('/path/get', methods=['GET', 'POST'])
+def path_get():
+    seed = request.values.get('seed')
+    blocks = request.values.get('blocks')
+    if not blocks:
+        blocks = []
+    else:
+        blocks = blocks.split('_');
+    blocks = list(map(lambda x: hex(int(x, 0)), blocks))
+    # follow my way
+    result = {'path': []}
+    for block in blocks:
+        if block in bitmap.data['bitmap']:
+            # set current path
+            if seed in bitmap.data['bitmap'][block]['seeds']:
+                result['path'].append(block)
+    return Response(json.dumps(result),  mimetype='application/json')
+
+
+'''
+Args:
+    blocks: 0x41_0x42_0x43
+    bitmapCnt: N
+    cpustateCnt: N
+    relationshipCnt: N
+Return:
+    bitmapCnt: N
+    cpustateCnt: N
+    relationshipCnt: N
+    bitmap: {addr: {hit: N}}
+    seeds: [id_0,id_1]
+    cpustate: html...
+    relationship: html...
+'''
 @app.route('/bitmap/get', methods=['GET', 'POST'])
 def bitmap_get():
+    # parse blocks
+    blocks = request.values.get('blocks')
+    if not blocks:
+        blocks = []
+    else:
+        blocks = blocks.split('_');
+    # prepare to_json argument
+    blocks = list(map(lambda x: hex(int(x, 0)), blocks))
+    seed = request.values.get('seed')
+    bitmap_cnt = int(request.values.get('bitmapCnt'), 0)
+    cpustate_cnt = int(request.values.get('cpustateCnt'), 0)
+    relationship_cnt = int(request.values.get('relationshipCnt'), 0)
+    result = bitmap.to_json(blocks, bitmap_cnt, cpustate_cnt,
+                            relationship_cnt)
+    return Response(result, mimetype='application/json')
+
     result = dict(bitmap.data)
     result['seeds'] = []
     result['path'] = []

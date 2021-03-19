@@ -1,13 +1,3 @@
-function drawPath(seeds, path, defaultSeed) {
-  initDropdown("dropdownCurSeed", seeds, function (x) {
-    return x;
-  }, defaultSeed);
-  $("#hitCntDiv div").removeClass("cur-path");
-  path.map(function(x) {
-    $("#" + x).addClass("cur-path");
-  });
-}
-
 function execute() {
   let address = $("#dropdownDisasToggle").text().split(":")[0];
   let seed = $("#dropdownSeedToggle").text();
@@ -33,27 +23,51 @@ function prepareConstraint() {
   setTimeout(function () { $("#btnConstraint").text("Constraint"); }, 1000);
 }
 
-function showBitmap(data, nodes, network) {
+function hitboxAnimate(nodes, network) {
   nodes.map(function (node) {
     let address = parseInt(node["id"]);
-    let hit = data["0x" + address.toString(16)]["hit"];
     let pos = network.getPosition(node["id"]);
     pos.y -= 60;
     pos = network.canvasToDOM(pos);
     $("#" + node["id"]).animate({left: pos.x, top: pos.y});
-    $("#" + node["id"]).text("[" + hit + "]");
   });
 }
 
+function drawPath(seed) {
+  let blocks = nodes.map(function (i){return i['id']}).join('_');
+  $.post("/path/get", {"blocks": blocks, "seed": seed}, function(data, status){
+    $("#hitCntDiv div").removeClass("cur-path");
+    data["path"].map(function(x) {
+      $("#" + x).addClass("cur-path");
+    });
+  });
+}
+
+function showBitmap(data, nodes, network, defaultSeed) {
+  if (!data) { return; }
+  // update hitbox
+  addrs = data["addrs"];
+  nodes.map(function (node) {
+    let address = parseInt(node["id"]);
+    let hit = addrs["0x" + address.toString(16)]["hit"];
+    $("#" + node["id"]).text("[" + hit + "]");
+  });
+  // update dropdown
+  seeds = data["seeds"];
+  initDropdown("dropdownCurSeed", seeds, function (x) {
+    return x;
+  }, defaultSeed, drawPath);
+}
+
 function showRelationship(data) {
-  if (data !== '') {
+  if (data) {
     $("#nav-relation .context-loading").addClass("d-none");
     $("#divRelation").html(data);
   }
 }
 
 function showCPUState(data) {
-  if (data !== '') {
+  if (data) {
     $("#nav-cpustate .context-loading").addClass("d-none");
     $("#divCPUState").html(data);
   }
@@ -139,11 +153,11 @@ function DOT2CFG(DOTstring, addrFix) {
 	  result += "0x" + x["offset"].toString(16);
 	  result += ":\t" + x["opcode"];
 	  return result;
-	}, "none");
+	}, "none", function (x) {});
 	// init seed dropdown
 	initDropdown("dropdownSeed", data["seeds"], function (x) {
 	  return x;
-	}, "none");
+	}, "none", function (x) {});
       });
     }
   });
@@ -162,7 +176,7 @@ function DOT2CFG(DOTstring, addrFix) {
   return [network, data];
 }
 
-function initDropdown(id, data, format, activeItem) {
+function initDropdown(id, data, format, activeItem, clickFunc) {
   // map to items
   $("#" + id + "Menu").html(data.map(function (x) {
     var result = format(x);
@@ -177,11 +191,13 @@ function initDropdown(id, data, format, activeItem) {
   $("#" + id + "Toggle").text(defaultItem.text());
   $("#" + id + "Toggle").val(defaultItem.text());
   defaultItem.addClass("active");
+  clickFunc(defaultItem.text());
   // regist click event
   $("#" + id + "Menu a").click(function(){
     $("#" + id + "Toggle").text($(this).text());
     $("#" + id + "Toggle").val($(this).text());
     $("#" + id + "Menu a").removeClass("active");
     $(this).addClass("active");
+    clickFunc($(this).text());
   });
 }
