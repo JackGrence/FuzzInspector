@@ -1,5 +1,6 @@
 import flask
 import json
+import os
 from flask import Flask
 from flask import request
 from flask import Response
@@ -74,28 +75,6 @@ def bitmap_get():
                             relationship_cnt)
     return Response(result, mimetype='application/json')
 
-    result = dict(bitmap.data)
-    result['seeds'] = []
-    result['path'] = []
-    blocks = request.values.get('blocks')
-    seed = request.values.get('seed')
-    if blocks:
-        blocks = blocks.split('_');
-        blocks = map(lambda x: hex(int(x, 0)), blocks)
-        result['bitmap'] = {}
-        for block in blocks:
-            if block not in bitmap.data['bitmap']:
-                result['bitmap'][block] = {'hit': 0}
-            else:
-                result['bitmap'][block] = {'hit': bitmap.data['bitmap'][block]['hit']}
-                # set seeds for choose path
-                if not result['seeds']:
-                    result['seeds'] = sorted(bitmap.data['bitmap'][block]['seeds'])
-                # set current path
-                if seed in bitmap.data['bitmap'][block]['seeds']:
-                    result['path'].append(block)
-    return Response(json.dumps(result),  mimetype='application/json')
-
 
 @app.route('/basicblock/disassemble')
 def assembly_get():
@@ -138,9 +117,11 @@ def fuzzer():
 
 @app.route("/seed")
 def seed():
+    pid = int(request.args.get('pid'))
     filename = request.args.get('fn')
+    filename = os.path.relpath(filename, '.')
     worker = BinaryWorker(BinaryWorker.ACTION_BITMAP,
-                          seeds=[filename])
+                          seeds=[filename], pid=pid)
     bitmap.queue.put(worker)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')
 

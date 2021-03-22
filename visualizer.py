@@ -305,12 +305,13 @@ class BinaryWorker:
     ACTION_RELATION = 3
     ACTION_CONSTRAINT = 4
 
-    def __init__(self, action, address=0, basicblock=0, seeds=[], context=[]):
+    def __init__(self, action, address=0, basicblock=0, seeds=[], context=[], pid=0):
         self.action = action
         self.address = address
         self.basicblock = basicblock
         self.seeds = seeds
         self.context = context
+        self.pid = pid
 
     def run(self, data, cnt, bin_info):
         if self.action == BinaryWorker.ACTION_BITMAP:
@@ -374,6 +375,7 @@ class BinaryWorker:
           STR_ADDR1: {
             'hit': N
             'seeds': set()
+            'fuzzers': {pid: name}
           }
         }
         '''
@@ -391,11 +393,15 @@ class BinaryWorker:
                 print(addr)
                 continue
             if addr not in result:
-                result[addr] = {'hit': 0, 'seeds': set()}
+                result[addr] = {'hit': 0, 'seeds': set(), 'fuzzers': {}}
                 bin_info.update(int(addr, 0))
             result[addr]['hit'] += 1
             if filename not in result[addr]['seeds']:
                 result[addr]['seeds'].add(filename)
+            if self.pid not in result[addr]['fuzzers']:
+                fuzzer_name = os.path.abspath(f'{filename}/../../../')
+                fuzzer_name = os.path.basename(fuzzer_name)
+                result[addr]['fuzzers'][self.pid] = fuzzer_name
 
         return result
 
@@ -446,10 +452,13 @@ class BitmapReceiver (threading.Thread):
             blocks = self.data['bitmap'].keys()
         # prepare hit, seeds
         for block in blocks:
-            if block not in self.data['bitmap']:
-                result['addrs'][block] = {'hit': 0}
-            else:
-                result['addrs'][block] = {'hit': self.data['bitmap'][block]['hit']}
+            # set default value
+            result['addrs'][block] = {'hit': 0, 'fuzzers': {}}
+            cur_block = result['addrs'][block]
+            # set value if exist
+            if block in self.data['bitmap']:
+                cur_block['hit'] = self.data['bitmap'][block]['hit']
+                cur_block['fuzzers'] = self.data['bitmap'][block]['fuzzers']
                 # set seeds for choosing path
                 # only set at first hitted block
                 if 'seeds' not in result:
