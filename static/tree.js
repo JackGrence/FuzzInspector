@@ -47,10 +47,34 @@ function showBitmap(data, nodes, network, defaultSeed) {
   if (!data) { return; }
   // update hitbox
   addrs = data["addrs"];
+  colors = {};
   nodes.map(function (node) {
     let address = parseInt(node["id"]);
-    let hit = addrs["0x" + address.toString(16)]["hit"];
-    $("#" + node["id"]).text("[" + hit + "]");
+    let stat = addrs["0x" + address.toString(16)];
+    let hit = "[" + stat["hit"] + "]";
+    // setup different color for fuzzer
+    if (Object.keys(colors).length == 0) {
+      // 1: rgb[0] + 128, -1: rgb[0] - 128
+      actions = [1, -3, 2, -1, 3, -2];
+      actIdx = 0;
+      rgb = [0, 0, 192];
+      for (pid in stat["fuzzers"]) {
+	key = stat["fuzzers"][pid] + "[" + pid + "]";
+	colors[key] = rgb.slice();
+	act = actions[actIdx];
+	idx = Math.abs(act) - 1;
+	rgb[idx] += (act > 0)? 192 : -192;
+	actIdx = (actIdx + 1) % actions.length;
+      }
+    }
+    // append circle to different fuzzer
+    for (pid in stat["fuzzers"]) {
+      key = stat["fuzzers"][pid] + "[" + pid + "]";
+      hit += "<font style=\"color: " + "rgb(" + colors[key].join(",") + ");";
+      hit += "font-size: 24px;\">";
+      hit += "★</font>";
+    }
+    $("#" + node["id"]).html(hit);
   });
   // update dropdown
   seeds = data["seeds"];
@@ -187,6 +211,8 @@ function initDropdown(id, data, format, activeItem, clickFunc) {
   let defaultItem = $("#" + id + "Menu a:contains('" + activeItem + "')");
   if (defaultItem.length == 0) {
     defaultItem = $($("#" + id + "Menu a")[0]);
+  } else {
+    defaultItem = $(defaultItem[0]);
   }
   $("#" + id + "Toggle").text(defaultItem.text());
   $("#" + id + "Toggle").val(defaultItem.text());

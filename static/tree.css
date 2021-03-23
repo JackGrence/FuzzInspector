@@ -61,7 +61,6 @@
 }
 
 .cur-path {
-  color: red;
   animation: shake 1s;
   animation-iteration-count: infinite;
 }
