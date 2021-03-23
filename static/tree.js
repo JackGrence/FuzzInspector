@@ -51,7 +51,7 @@ function showBitmap(data, nodes, network, defaultSeed) {
   nodes.map(function (node) {
     let address = parseInt(node["id"]);
     let stat = addrs["0x" + address.toString(16)];
-    let hit = "[" + stat["hit"] + "]";
+    let hit = "";
     // setup different color for fuzzer
     if (Object.keys(colors).length == 0) {
       // 1: rgb[0] + 128, -1: rgb[0] - 128
@@ -74,6 +74,7 @@ function showBitmap(data, nodes, network, defaultSeed) {
       hit += "font-size: 24px;\">";
       hit += "★</font>";
     }
+    // TODO: display stat["hit"] when mouse hover
     $("#" + node["id"]).html(hit);
   });
   // update dropdown
