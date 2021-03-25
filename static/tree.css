@@ -2,7 +2,7 @@
   position: relative;
   overflow: auto;
   word-wrap: break-word;
-  height: calc(50vh);
+  height: calc(40vh);
   z-index:1;
 }
 
@@ -34,6 +34,10 @@
   margin-top: 66px;
 }
 
+.vis-network:focus {
+  outline: none;
+}
+
 #mynetwork {
   position: relative;
   width: 100%;
@@ -50,16 +54,23 @@
   z-index: 0;
 }
 
+.log-box {
+  white-space: nowrap;
+  font-size: 12px;
+  overflow: auto;
+}
+
 #logDiv {
   position: absolute;
   width: calc(30%);
   height: calc(20%);
   top: 0px;
   left: 0px;
-  overflow: auto;
   z-index: 2;
-  white-space: nowrap;
-  font-size: 12px;
+}
+
+#modalLogDiv {
+  height: calc(10vh);
 }
 
 #fuzzerColorDiv {

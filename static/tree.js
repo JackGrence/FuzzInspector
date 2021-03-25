@@ -7,6 +7,8 @@ function showLog(log) {
   }
   $("#logDiv").html(curLog.join("<br>"));
   $("#logDiv").animate({"scrollTop": $("#logDiv")[0].scrollHeight});
+  $("#modalLogDiv").html($("#logDiv").html());
+  $("#modalLogDiv").animate({"scrollTop": $("#modalLogDiv")[0].scrollHeight});
 }
 
 function execute() {
@@ -189,6 +191,10 @@ function DOT2CFG(DOTstring, addrFix) {
       var address = data.nodes[0];
       // show modal
       $("#visualContent").modal("show");
+      $("#visualContent").on("shown.bs.modal", function (e) {
+	// scroll log to bottom
+	$("#modalLogDiv").animate({"scrollTop": $("#modalLogDiv")[0].scrollHeight});
+      });
       $("#visualContentLongTitle").text("Address: " + address);
       // prepare disassembly
       $.getJSON("/basicblock/disassemble", {"address": address}).done(function(data, status){
