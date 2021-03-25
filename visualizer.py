@@ -63,8 +63,17 @@ class VisualizeHelper:
             if not que:
                 break
             data, l, r = que.pop()
-            print(data, l, r)
             new_data = data[:l] + os.urandom(r - l) + data[r:]
+            # log
+            visoutput = 'visualizer_afl:'
+            visoutput += f'Find unmutable from {l} to {r}, '
+            visoutput += f'{new_data[:l][-5:]}, '
+            visoutput += f'{new_data[l:r]}, '
+            visoutput += f'{new_data[r:][:5]}'
+            visoutput += 'VISEND'
+            print(visoutput)
+            sys.stdout.flush()
+            # run target
             status, result = cls.run_target(new_data)
             if status == cls.STATUS_CHILD:
                 # let child return to ql.py
@@ -90,12 +99,21 @@ class VisualizeHelper:
             if not que:
                 break
             data, l, r = que.pop()
-            print(data, l, r)
             new_data = data[:l] + os.urandom(r - l) + data[r:]
             new_data = list(new_data)
             for i in unmutable:
                 new_data[i] = data[i]
             new_data = bytes(new_data)
+            # log
+            visoutput = 'visualizer_afl:'
+            visoutput += f'Find mutable from {l} to {r}, '
+            visoutput += f'{new_data[:l][-5:]}, '
+            visoutput += f'{new_data[l:r]}, '
+            visoutput += f'{new_data[r:][:5]}'
+            visoutput += 'VISEND'
+            print(visoutput)
+            sys.stdout.flush()
+            # run target
             status, result = cls.run_target(new_data)
             if status == cls.STATUS_CHILD:
                 # let child return to ql.py
@@ -316,17 +334,14 @@ class BinaryWorker:
 
     def run(self, data, cnt, bin_info):
         if self.action == BinaryWorker.ACTION_BITMAP:
-            BitmapReceiver.log_info('Analysis new seed')
             # new or use old
             data['bitmap'] = self.bitmap(data.get('bitmap', {}), bin_info)
             data['bitmap_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
-            BitmapReceiver.log_info('Start CPUState')
             # always new
             data['cpustate'] = self.cpustate(bin_info)
             data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
-            BitmapReceiver.log_info('Start Relationship')
             # always new
             data['relationship'] = self.relationship()
             data['relationship_cnt'] = cnt
@@ -385,6 +400,7 @@ class BinaryWorker:
         }
         '''
         filename = self.seeds[0]
+        BitmapReceiver.log_info(f'Analysis seed {filename}')
         # python ql.py inputfile debug_level trace
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
         addr_list = VisualizeHelper.parse_visresult(addr_list.stdout)
@@ -417,6 +433,7 @@ class BinaryWorker:
 
         # do cpustate
         filename = self.seeds[0]
+        BitmapReceiver.log_info(f'Get CPUState {self.context} by seed {filename}')
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
                                  str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
@@ -426,10 +443,23 @@ class BinaryWorker:
 
     def relationship(self):
         filename = self.seeds[0]
-        result = subprocess.run(['python', 'ql.py', filename, '0', 'relation',
-                                 str(self.address), *self.context],
-                                stdout=subprocess.PIPE)
-        return VisualizeHelper.parse_visresult(result.stdout)
+        BitmapReceiver.log_info(f'Get Relationship {self.context} by seed {filename}')
+        result = subprocess.Popen(['python', 'ql.py', filename, '0', 'relation',
+                                   str(self.address), *self.context],
+                                  stdout=subprocess.PIPE)
+        output = b''
+        visresult = []
+        while True:
+            buf = result.stdout.read(32)
+            if len(buf) == 0:
+                break
+            output += buf
+            visresult += VisualizeHelper.parse_visresult(output)
+            for i in visresult[:-1]:
+                BitmapReceiver.log_info(i)
+            visresult = visresult[-1:]
+            output = output.split(b'VISEND')[-1]
+        return visresult
 
     def parse_visresult(self, output):
         output = output.split(b'visualizer_afl:')
