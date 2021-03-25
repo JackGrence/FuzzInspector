@@ -43,7 +43,7 @@
   z-index: 1;
 }
 
-#hitCntDiv {
+.overlap-div {
   position: absolute;
   padding-left: 10px;
   padding-right: 10px;
@@ -52,6 +52,20 @@
   width: 100%;
   height: 100%;
   z-index: 0;
+}
+
+#logDiv {
+  position: absolute;
+  width: calc(20%);
+  top: 0px;
+  left: 10px;
+}
+
+#fuzzerColorDiv {
+  position: absolute;
+  width: calc(20%);
+  top: 0px;
+  left: calc(80% - 10px);
 }
 
 .hit-box {

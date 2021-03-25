@@ -58,14 +58,23 @@ function showBitmap(data, nodes, network, defaultSeed) {
       actions = [1, -3, 2, -1, 3, -2];
       actIdx = 0;
       rgb = [0, 0, 192];
+      fuzzerColorHtml = "";
       for (pid in stat["fuzzers"]) {
+	// setup colors
 	key = stat["fuzzers"][pid] + "[" + pid + "]";
 	colors[key] = rgb.slice();
+	// prepare fuzzerColorHtml
+	fuzzerColorHtml += "<font style=\"color: ";
+	fuzzerColorHtml += "rgb(" + colors[key].join(",") + ");\">";
+	fuzzerColorHtml += key;
+	fuzzerColorHtml += " ★</font><br>";
+	// calc next color
 	act = actions[actIdx];
 	idx = Math.abs(act) - 1;
 	rgb[idx] += (act > 0)? 192 : -192;
 	actIdx = (actIdx + 1) % actions.length;
       }
+      $("#fuzzerColorDiv").html(fuzzerColorHtml);
     }
     // append circle to different fuzzer
     for (pid in stat["fuzzers"]) {
@@ -189,7 +198,7 @@ function DOT2CFG(DOTstring, addrFix) {
 
   // create hit counter box
   $("#hitCntDiv").html(data.nodes.map(function (node) {
-    var result = '<div id="' + node.id + '" class="hit-box">0</div>';
+    var result = '<div id="' + node.id + '" class="hit-box"></div>';
     return result;
   }).join(''));
 
