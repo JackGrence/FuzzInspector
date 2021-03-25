@@ -13,30 +13,33 @@
 
 <body>
 <nav class="navbar navbar-light bg-light fixed-top">
-  <div class="dropdown">
-    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownCurSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-      Display Seed
-    </button>
-    <div id="dropdownCurSeedMenu" class="dropdown-menu" aria-labelledby="dropdownCurSeedToggle">
-      <a class="dropdown-item" href="#">Action</a>
-      <a class="dropdown-item" href="#">Another action</a>
-      <a class="dropdown-item" href="#">Something else here</a>
-    </div>
+  <div class="navbar navbar-light bg-light border border-success rounded text-success text-center">
+    FuzzInspector
   </div>
-  <form class="form-inline">
-    <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
-    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-  </form>
+  <div>
+    <form class="form-inline">
+      <div class="dropdown mr-sm-2">
+	<button class="btn bg-white border dropdown-toggle" type="button" id="dropdownCurSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+	  Display Seed
+	</button>
+	<div id="dropdownCurSeedMenu" class="dropdown-menu" aria-labelledby="dropdownCurSeedToggle">
+	  <a class="dropdown-item" href="#">Action</a>
+	  <a class="dropdown-item" href="#">Another action</a>
+	  <a class="dropdown-item" href="#">Something else here</a>
+	</div>
+      </div>
+      <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
+      <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+    </form>
+  </div>
 </nav>
 <div class="overlap w-100">
-<div id="mynetwork"></div>
-<div id="hitCntDiv" class="text-center overlap-div">
-  <div class="hit-box"></div>
-</div>
-<div id="layoutInfoDiv" class="overlap-div">
-  <div id="fuzzerColorDiv" class="text-right p-3"></div>
-  <div id="logDiv" class="text-left p-3">1000</div>
-</div>
+  <div id="mynetwork"></div>
+  <div id="hitCntDiv" class="text-center overlap-div">
+    <div class="hit-box"></div>
+  </div>
+  <div id="fuzzerColorDiv" class="text-right p-2 overlap-div"></div>
+  <div id="logDiv" class="text-left p-2 overlap-div">1000</div>
 </div>
 <div class="modal fade" id="visualContent" tabindex="-1" role="dialog" aria-labelledby="visualContentTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
