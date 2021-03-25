@@ -1,3 +1,14 @@
+function showLog(log) {
+  if (!log) { return; }
+  let curLog = $("#logDiv").html().split("<br>");
+  curLog = curLog.concat(log);
+  if (curLog.length > 200) {
+    curLog = curLog.slice(100);
+  }
+  $("#logDiv").html(curLog.join("<br>"));
+  $("#logDiv").animate({"scrollTop": $("#logDiv")[0].scrollHeight});
+}
+
 function execute() {
   let address = $("#dropdownDisasToggle").text().split(":")[0];
   let seed = $("#dropdownSeedToggle").text();

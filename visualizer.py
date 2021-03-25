@@ -12,6 +12,7 @@ import queue
 import hexdump
 import signal
 import glob
+from datetime import datetime
 
 
 class VisualizeHelper:
@@ -315,18 +316,22 @@ class BinaryWorker:
 
     def run(self, data, cnt, bin_info):
         if self.action == BinaryWorker.ACTION_BITMAP:
+            BitmapReceiver.log_info('Analysis new seed')
             # new or use old
             data['bitmap'] = self.bitmap(data.get('bitmap', {}), bin_info)
             data['bitmap_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
+            BitmapReceiver.log_info('Start CPUState')
             # always new
             data['cpustate'] = self.cpustate(bin_info)
             data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
+            BitmapReceiver.log_info('Start Relationship')
             # always new
             data['relationship'] = self.relationship()
             data['relationship_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CONSTRAINT:
+            BitmapReceiver.log_info('Start Constraint')
             self.constraint(data)
 
     def parse_constraint(self, context):
@@ -433,7 +438,34 @@ class BinaryWorker:
         return output
 
 
+'''
+This is a non-thread safe class
+'''
 class BitmapReceiver (threading.Thread):
+
+    log_list = []
+    log_cnt = 0
+
+    @classmethod
+    def log(cls, msg, msgtype='INFO'):
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = f'[{msgtype}] {now} {msg}'
+        cls.log_list.append(now)
+        cls.log_cnt += 1
+        if len(cls.log_list) > 200:
+            # save to file
+            with open('fuzzinspector.log', 'a') as f:
+                f.write('\n'.join(cls.log_list[:100]))
+            for _ in range(100):
+                cls.log_list.pop(0)
+
+    @classmethod
+    def log_info(cls, msg):
+        cls.log(msg, 'INFO')
+
+    @classmethod
+    def log_warning(cls, msg):
+        cls.log(msg, 'WARN')
 
     def __init__(self):
         threading.Thread.__init__(self)
@@ -465,7 +497,8 @@ class BitmapReceiver (threading.Thread):
                     result['seeds'] = sorted(self.data['bitmap'][block]['seeds'])
         return result
 
-    def to_json(self, blocks, bitmap_cnt, cpustate_cnt, relationship_cnt):
+    def to_json(self, blocks, bitmap_cnt, cpustate_cnt,
+                relationship_cnt, log_cnt):
         # init
         result = dict(self.data)
         # bitmap
@@ -479,7 +512,18 @@ class BitmapReceiver (threading.Thread):
         # relationship
         if self.data['relationship_cnt'] == relationship_cnt:
             result['relationship'] = None
+        # log
+        if BitmapReceiver.log_cnt == log_cnt:
+            result['log'], result['log_cnt'] = None, log_cnt
+        else:
+            result['log'], result['log_cnt'] = self.log2json(log_cnt)
         return json.dumps(result)
+
+    def log2json(self, log_cnt):
+        cur_cnt = BitmapReceiver.log_cnt
+        if log_cnt > cur_cnt:
+            return BitmapReceiver.log_list[:], cur_cnt
+        return BitmapReceiver.log_list[log_cnt - cur_cnt:], cur_cnt
 
     def run(self):
         cnt = 1

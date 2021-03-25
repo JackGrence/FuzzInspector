@@ -67,12 +67,15 @@ def bitmap_get():
         blocks = blocks.split('_');
     # prepare to_json argument
     blocks = list(map(lambda x: hex(int(x, 0)), blocks))
-    seed = request.values.get('seed')
-    bitmap_cnt = int(request.values.get('bitmapCnt'), 0)
-    cpustate_cnt = int(request.values.get('cpustateCnt'), 0)
-    relationship_cnt = int(request.values.get('relationshipCnt'), 0)
+    bitmap_cnt, cpustate_cnt, relationship_cnt = 0, 0, 0
+    log_cnt = 0
+    if request.method == 'POST':
+        bitmap_cnt = int(request.form['bitmapCnt'], 0)
+        cpustate_cnt = int(request.form['cpustateCnt'], 0)
+        relationship_cnt = int(request.form['relationshipCnt'], 0)
+        log_cnt = int(request.form['logCnt'], 0)
     result = bitmap.to_json(blocks, bitmap_cnt, cpustate_cnt,
-                            relationship_cnt)
+                            relationship_cnt, log_cnt)
     return Response(result, mimetype='application/json')
 
 

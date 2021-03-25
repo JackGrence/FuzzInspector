@@ -150,6 +150,7 @@
     let bitmapCnt = 0;
     let cpustateCnt = 0;
     let relationshipCnt = 0;
+    let logCnt = 0;
 
     setInterval(function(){
       // get hit count by address
@@ -158,7 +159,8 @@
       payload = {"blocks": blocks,
 		 "bitmapCnt": bitmapCnt,
 		 "cpustateCnt": cpustateCnt,
-		 "relationshipCnt": relationshipCnt};
+		 "relationshipCnt": relationshipCnt,
+		 "logCnt": logCnt};
       $.post("/bitmap/get", payload, function(data, status){
 	hitboxAnimate(nodes, network);
 	// show hit info
@@ -170,6 +172,9 @@
 	// show Relationship
 	showRelationship(data["relationship"]);
 	relationshipCnt = data["relationship_cnt"];
+	// show log
+	showLog(data["log"]);
+	logCnt = data["log_cnt"];
       });
     }, 1000);
   </script>
