@@ -152,9 +152,15 @@ def relationship():
 
 @app.route("/constraint")
 def constraint():
+    # [globaldelm][delm]type[delm]data1[delm]data2[globaldeml]...
+    # |,range32,100,400|,str,aaa,bbb
     pid = int(request.args.get('pid'), 0)
-    context = request.args.get('context').strip()
-    context = context.split(' ') if context else []
+    context = request.args.get('context')
+    if len(context) <= 2:
+        context = []
+    else:
+        global_delm = context[0]
+        context = context[1:].split(global_delm)
     worker = BinaryWorker(BinaryWorker.ACTION_CONSTRAINT,
                           context=context,
                           pid=pid)

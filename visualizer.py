@@ -346,26 +346,59 @@ class BinaryWorker:
             data['relationship'] = self.relationship()
             data['relationship_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CONSTRAINT:
-            BitmapReceiver.log_info('Start Constraint')
             self.constraint(data)
 
     def parse_constraint(self, context):
         '''
-        type_offset_data (hex_5_deadbeef)
-        offset length data (5 4 0xde 0xad 0xbe 0xef)
-        '''
-        datatype, offset, data = context.split('_')
-        offset = int(offset, 0)
-        if datatype == 'hex':
-            data = bytes.fromhex(data)
-        elif datatype == 'str':
-            data = data.encode() + b'\x00'
-        else:
-            data = b'unknown'
+        ,type,endian,offset,overwrite_length,data
+        ex: ,hex,<,0,3,deadbeef
+        type endian offset overwirte_length data_cnt data_length data
+        ex: array X 0 3 1 3 0xde 0xad 0xbe
+        (0xef will ignore now)
 
-        result = f'{offset} {len(data)} '
-        for d in data:
-            result += f'{hex(d)} '
+        ,type,endian,offset,overwrite_length,data
+        ex: ,range32,>,0,4,0x1,0x10000000
+        type endian offset overwirte_length data_cnt data_length data
+        ex: range big 0 4 2 4 0x01 0x00 0x00 0x00 4 0x00 0x00 0x00 0x10
+        (forbid insert mode)
+        '''
+        # TODO: make string can be insert, support variant length
+        delm = context[0]
+        datatype, endian, offset, write_len, *data = context[1:].split(delm)
+        offset = int(offset, 0)
+        write_len = int(write_len, 0)
+        bit2pack = {8: 'B', 16: 'H', 32: 'I', 64: 'Q'}
+        # TODO: pack by CPU arch (little endian now)
+        # Note: we pack integer by little endian between fuzzer and visualizer
+        # the endian variable is for seed, will process in fuzzer
+        if datatype[:5] == 'range':
+            bit_len = int(datatype[5:])
+            assert len(data) == 2, 'range length error'
+            packstr = f'<{bit2pack[bit_len]}'
+            data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
+        elif datatype[:3] == 'int':
+            bit_len = int(datatype[3:])
+            packstr = f'<{bit2pack[bit_len]}'
+            data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
+        elif datatype[:3] == 'str':
+            data = map(lambda x: x.encode() + b'\x00', data)
+        elif datatype[:3] == 'hex':
+            data = map(lambda x: bytes.fromhex(x), data)
+        data = list(data)
+
+        # type endian offset overwirte_length data_cnt data_length data
+        # ex: range big 4 0 2 4 0x01 0x00 0x00 0x00 4 0x00 0x00 0x00 0x10
+        # range -> 0, array -> 1
+        # little endian -> 0, big endian -> 1
+        result = '0' if datatype[:5] == 'range' else '1'
+        result += ' 0' if endian == '<' else ' 1'
+        result += f' {offset} {write_len} {len(data)}'
+        for data_bytes in data:
+            # TODO: variant data length, keep same and padding null now
+            data_bytes = data_bytes.ljust(write_len, b'\x00')[:write_len]
+            result += f' {len(data_bytes)}'
+            for d in data_bytes:
+                result += f' {hex(d)}'
         return result
 
     def constraint(self, bitmapdata):
@@ -378,17 +411,18 @@ class BinaryWorker:
             for ctx in self.context:
                 data = self.parse_constraint(ctx)
                 result += f'{data} '
-        except:
+        except Exception as e:
             # invalid format, skip and log
-            # TODO: log error
+            BitmapReceiver.log_error(f'Invalid constraint {self.context} {str(e)}')
             return
         bitmapdata['constraint'] = result
+        BitmapReceiver.log_info(f'Parsed constraint {result}')
         # SIGUSR2 inform afl++
         # keep lookup afl-fuzz pid to prevent arbitrary kill
         pids = subprocess.check_output(['pidof', 'afl-fuzz']).split(b' ')
         for pid in map(int, pids):
             if pid == self.pid:
-                msg = f'Set constraint {result} - kill({pid}, SIGUSR2)'
+                msg = f'Inform fuzzer {pid} to set constraint'
                 BitmapReceiver.log_info(msg)
                 os.kill(pid, signal.SIGUSR2)
 
@@ -499,6 +533,10 @@ class BitmapReceiver (threading.Thread):
     @classmethod
     def log_warning(cls, msg):
         cls.log(msg, 'WARN')
+
+    @classmethod
+    def log_error(cls, msg):
+        cls.log(msg, 'ERROR')
 
     def __init__(self):
         threading.Thread.__init__(self)
