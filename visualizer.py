@@ -368,17 +368,16 @@ class BinaryWorker:
         offset = int(offset, 0)
         write_len = int(write_len, 0)
         bit2pack = {8: 'B', 16: 'H', 32: 'I', 64: 'Q'}
-        # TODO: pack by CPU arch (little endian now)
-        # Note: we pack integer by little endian between fuzzer and visualizer
+        # Note: we pack integer by network order between fuzzer and visualizer
         # the endian variable is for seed, will process in fuzzer
         if datatype[:5] == 'range':
             bit_len = int(datatype[5:])
             assert len(data) == 2, 'range length error'
-            packstr = f'<{bit2pack[bit_len]}'
+            packstr = f'!{bit2pack[bit_len]}'
             data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
         elif datatype[:3] == 'int':
             bit_len = int(datatype[3:])
-            packstr = f'<{bit2pack[bit_len]}'
+            packstr = f'!{bit2pack[bit_len]}'
             data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
         elif datatype[:3] == 'str':
             data = map(lambda x: x.encode() + b'\x00', data)
