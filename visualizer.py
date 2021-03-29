@@ -384,10 +384,13 @@ class BinaryWorker:
             return
         bitmapdata['constraint'] = result
         # SIGUSR2 inform afl++
-        # TODO: specify a fuzzer not all, maybe registing or binding
+        # keep lookup afl-fuzz pid to prevent arbitrary kill
         pids = subprocess.check_output(['pidof', 'afl-fuzz']).split(b' ')
         for pid in map(int, pids):
-            os.kill(pid, signal.SIGUSR2)
+            if pid == self.pid:
+                msg = f'Set constraint {result} - kill({pid}, SIGUSR2)'
+                BitmapReceiver.log_info(msg)
+                os.kill(pid, signal.SIGUSR2)
 
     def bitmap(self, result, bin_info):
         '''

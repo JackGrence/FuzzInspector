@@ -55,7 +55,7 @@
 	  <div class="row">
 	    <div class="col-6">
 	      <div class="dropdown w-100">
-		<button class="btn btn-secondary dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		<button class="btn bg-white border dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 		  Dropdown button
 		</button>
 		<div id="dropdownDisasMenu" class="dropdown-menu" aria-labelledby="dropdownDisasToggle">
@@ -67,7 +67,7 @@
 	    </div>
 	    <div class="col-6">
 	      <div class="dropdown w-100">
-		<button class="btn btn-secondary dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		<button class="btn bg-white border dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 		  Dropdown button
 		</button>
 		<div id="dropdownSeedMenu" class="dropdown-menu" aria-labelledby="dropdownSeedToggle">
@@ -134,6 +134,16 @@
       <div class="modal-footer">
 	<div class="container">
 	  <div class="input-group">
+	    <div class="dropdown mr-2">
+	      <button class="btn bg-white border dropdown-toggle text-truncate overflow-hidden" type="button" id="dropdownCurFuzzerToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		Display Seed
+	      </button>
+	      <div id="dropdownCurFuzzerMenu" class="dropdown-menu" aria-labelledby="dropdownCurFuzzerToggle">
+		<a class="dropdown-item" href="#">Action</a>
+		<a class="dropdown-item" href="#">Another action</a>
+		<a class="dropdown-item" href="#">Something else here</a>
+	      </div>
+	    </div>
 	    <input id="inputConstraint" type="text" class="form-control" placeholder="str_offset_value" aria-label="" aria-describedby="basic-addon1">
 	    <div class="input-group-prepend">
 	      <button id="btnConstraint" class="btn btn-outline-secondary" type="button" onclick="prepareConstraint()">Constraint</button>

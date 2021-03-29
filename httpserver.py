@@ -152,9 +152,11 @@ def relationship():
 
 @app.route("/constraint")
 def constraint():
+    pid = int(request.args.get('pid'), 0)
     context = request.args.get('context').strip()
     context = context.split(' ') if context else []
     worker = BinaryWorker(BinaryWorker.ACTION_CONSTRAINT,
-                          context=context)
+                          context=context,
+                          pid=pid)
     bitmap.queue.put(worker)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')

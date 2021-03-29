@@ -30,8 +30,15 @@ function execute() {
 }
 
 function prepareConstraint() {
-  ctx = $("#inputConstraint").val();
-  $.getJSON("/constraint", {"context": ctx});
+  let pid = 0;
+  let ctx = $("#inputConstraint").val();
+  pid = $("#dropdownCurFuzzerToggle").text();
+  pid = pid.split("[").map(function (x) {
+    return parseInt(x);
+  }).filter(function (x) {
+    return !!x;
+  })[0];
+  $.getJSON("/constraint", {"context": ctx, "pid": pid});
   $("#btnConstraint").text("...");
   setTimeout(function () { $("#btnConstraint").text("Constraint"); }, 1000);
 }
@@ -99,11 +106,17 @@ function showBitmap(data, nodes, network, defaultSeed) {
     // TODO: display stat["hit"] when mouse hover
     $("#" + node["id"]).html(hit);
   });
-  // update dropdown
+  // update seeds dropdown
   seeds = data["seeds"];
   initDropdown("dropdownCurSeed", seeds, function (x) {
     return x;
   }, defaultSeed, drawPath);
+  // update fuzzer dropdown
+  defaultFuzzer = $("#dropdownCurFuzzerToggle").text();
+  fuzzers = Object.keys(colors);
+  initDropdown("dropdownCurFuzzer", fuzzers, function (x) {
+    return x;
+  }, defaultFuzzer, function (x) {});
 }
 
 function showRelationship(data) {
