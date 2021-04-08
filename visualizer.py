@@ -388,9 +388,9 @@ class BinaryWorker:
         # type endian offset overwirte_length data_cnt data_length data
         # ex: range big 4 0 2 4 0x01 0x00 0x00 0x00 4 0x00 0x00 0x00 0x10
         # range -> 0, array -> 1
-        # little endian -> 0, big endian -> 1
+        # little endian -> 0, big endian -> 1, byte -> 2
         result = '0' if datatype[:5] == 'range' else '1'
-        result += ' 0' if endian == '<' else ' 1'
+        result += ' 0' if endian == '<' else ' 1' if endian == '>' else ' 2'
         result += f' {offset} {write_len} {len(data)}'
         for data_bytes in data:
             # TODO: variant data length, keep same and padding null now
