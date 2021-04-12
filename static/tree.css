@@ -140,3 +140,15 @@
     opacity: 0.5;
   }
 }
+
+.div-hex {
+  display: inline;
+}
+
+.unmutable {
+  background-color: lightpink;
+}
+
+.mutable {
+  background-color: lightblue;
+}

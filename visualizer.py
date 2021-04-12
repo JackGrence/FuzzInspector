@@ -21,6 +21,12 @@ class VisualizeHelper:
     STATUS_PARENT = 1
 
     @classmethod
+    def print_visresult(cls, data):
+        visoutput = f'visualizer_afl:{data}VISEND'
+        print(visoutput)
+        sys.stdout.flush()
+
+    @classmethod
     def init_from_afl_output(cls, bitmap_receiver):
         afl_output_dir = os.getenv('AFL_OUTPUT_DIR')
         for fn in glob.glob(f'{afl_output_dir}/visualizer/*'):
@@ -64,15 +70,6 @@ class VisualizeHelper:
                 break
             data, l, r = que.pop()
             new_data = data[:l] + os.urandom(r - l) + data[r:]
-            # log
-            visoutput = 'visualizer_afl:'
-            visoutput += f'Find unmutable from {l} to {r}, '
-            visoutput += f'{new_data[:l][-5:]}, '
-            visoutput += f'{new_data[l:r]}, '
-            visoutput += f'{new_data[r:][:5]}'
-            visoutput += 'VISEND'
-            print(visoutput)
-            sys.stdout.flush()
             # run target
             status, result = cls.run_target(new_data)
             if status == cls.STATUS_CHILD:
@@ -86,6 +83,10 @@ class VisualizeHelper:
                 m = (l + r) // 2
                 que.append([data, l, m])
                 que.append([data, m, r])
+            else:
+                # clear highlight
+                scope = {'action': 'unmutable', 'data': [l, r]}
+                VisualizeHelper.print_visresult(f'{scope}')
         return status, sorted(unmutable)
 
     '''
@@ -104,15 +105,6 @@ class VisualizeHelper:
             for i in unmutable:
                 new_data[i] = data[i]
             new_data = bytes(new_data)
-            # log
-            visoutput = 'visualizer_afl:'
-            visoutput += f'Find mutable from {l} to {r}, '
-            visoutput += f'{new_data[:l][-5:]}, '
-            visoutput += f'{new_data[l:r]}, '
-            visoutput += f'{new_data[r:][:5]}'
-            visoutput += 'VISEND'
-            print(visoutput)
-            sys.stdout.flush()
             # run target
             status, result = cls.run_target(new_data)
             if status == cls.STATUS_CHILD:
@@ -127,10 +119,23 @@ class VisualizeHelper:
                 m = (l + r) // 2
                 que.append([data, l, m])
                 que.append([data, m, r])
+            else:
+                # clear highlight
+                scope = {'action': 'mutable', 'data': [l, r]}
+                VisualizeHelper.print_visresult(f'{scope}')
         return status, sorted(mutable)
 
+    '''
+    visresult:
+        {action: 'input', data: bytes array}
+        {action: 'unmutable', data: [start, end]}
+        {action: 'mutable', data: [start, end]}
+        {action: 'expect', data: string}
+    '''
     @classmethod
     def relationship(cls, ql, inp):
+        input_data = {'action': 'input', 'data': list(inp)}
+        VisualizeHelper.print_visresult(f'{input_data}')
         # colorize
         status, result = cls.find_unmutable(inp)
         if status == cls.STATUS_CHILD:
@@ -147,17 +152,9 @@ class VisualizeHelper:
             return result
         mutable = result
 
-        inp_hexdump = hexdump.hexdump(inp, result='return')
-        inp_hexdump = inp_hexdump.replace('\n', '<br>\n')
-        result = f'visualizer_afl:\n'
-        result += f'Address: {hex(ql.reg.pc)}<br>\n'
-        result += f'Unmutable:<br>\n{unmutable}<br>\n'
-        result += f'Mutable:<br>\n{mutable}<br>\n'
-        result += f'Expect context:<br>\n{expect}<br>\n'
-        result += f'Input hexdump:<br>\n{inp_hexdump}<br>\n'
-        result += f'VISEND'
-        print(result)
-        sys.stdout.flush()
+        expect_data = {'action': 'expect', 'data': expect}
+        VisualizeHelper.print_visresult(f'{expect_data}')
+
         sys.exit(0)
         # output
         return inp
@@ -343,8 +340,7 @@ class BinaryWorker:
             data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
             # always new
-            data['relationship'] = self.relationship()
-            data['relationship_cnt'] = cnt
+            self.relationship(data)
         elif self.action == BinaryWorker.ACTION_CONSTRAINT:
             self.constraint(data)
 
@@ -477,25 +473,25 @@ class BinaryWorker:
 
         return result if result else ''
 
-    def relationship(self):
+    def relationship(self, data):
+        data['relationship'] = []
+
         filename = self.seeds[0]
         BitmapReceiver.log_info(f'Get Relationship {self.context} by seed {filename}')
         result = subprocess.Popen(['python', 'ql.py', filename, '0', 'relation',
                                    str(self.address), *self.context],
                                   stdout=subprocess.PIPE)
         output = b''
-        visresult = []
         while True:
             buf = result.stdout.read(32)
             if len(buf) == 0:
                 break
             output += buf
-            visresult += VisualizeHelper.parse_visresult(output)
-            for i in visresult[:-1]:
-                BitmapReceiver.log_info(i)
-            visresult = visresult[-1:]
+            visresult = VisualizeHelper.parse_visresult(output)
+            for i in visresult:
+                data['relationship'].append(eval(i))
+                data['relationship_cnt'] += 1
             output = output.split(b'VISEND')[-1]
-        return visresult
 
     def parse_visresult(self, output):
         output = output.split(b'visualizer_afl:')
@@ -541,6 +537,7 @@ class BitmapReceiver (threading.Thread):
         threading.Thread.__init__(self)
         self.queue = queue.Queue()
         self.data = {'bitmap': {},
+                     'relationship': [],
                      'bitmap_cnt': 0,
                      'cpustate_cnt': 0,
                      'relationship_cnt': 0}
@@ -581,7 +578,10 @@ class BitmapReceiver (threading.Thread):
             result['cpustate'] = None
         # relationship
         if self.data['relationship_cnt'] == relationship_cnt:
-            result['relationship'] = None
+            result['relationship'] = []
+        else:
+            cur_cnt = result['relationship_cnt']
+            result['relationship'] = result['relationship'][relationship_cnt - cur_cnt:]
         # log
         if BitmapReceiver.log_cnt == log_cnt:
             result['log'], result['log_cnt'] = None, log_cnt

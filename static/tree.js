@@ -119,10 +119,75 @@ function showBitmap(data, nodes, network, defaultSeed) {
   }, defaultFuzzer, function (x) {});
 }
 
+function seed2hexdump(seed) {
+  let ind = 0;
+  let bytesInd = 0;
+  let printableInd = 0;
+  let offset = [];
+  let bytes = [];
+  let printable = [];
+  while (seed.length) {
+    offset.push(ind.toString(16).padStart(8, "0"));
+    // setup bytes
+    bytes.push(seed.slice(0, 16).map(function (c) {
+      let data = c.toString(16).padStart(2, "0");
+      data = "<div class=\"div-hex\" id=\"divHexBytes" + bytesInd + "\">" + data + "</div>";
+      bytesInd += 1;
+      return data;
+    }).join(" "));
+    // setup printable
+    printable.push(seed.slice(0, 16).map(function (c) {
+      let data = (c >= 32 && c <= 126) ? String.fromCharCode(c) : ".";
+      data = "<div class=\"div-hex\" id=\"divHexPrintable" + printableInd + "\">" + data + "</div>";
+      printableInd += 1;
+      return data;
+    }).join(""));
+    ind += 16;
+    seed = seed.slice(16)
+  }
+  $("#divHexOffset").html(offset.join("<br>"));
+  $("#divHexBytes").html(bytes.join("<br>"));
+  $("#divHexPrintable").html(printable.join("<br>"));
+}
+
+let initMutable;
+let initUnmtable;
+
 function showRelationship(data) {
   if (data) {
-    $("#nav-relation .context-loading").addClass("d-none");
-    $("#divRelation").html(data);
+    data.map(function (ctx) {
+      if (ctx["action"] == "input") {
+	// init
+	$("#divExpect").html("");
+	initMutable = 0;
+	initUmutable = 0;
+	// seed
+	seed2hexdump(ctx["data"]);
+      } else if (ctx["action"] == "unmutable") {
+	if (initUmutable == 0) {
+	  initUnmtable = 1;
+	  $("#divHexBytes div").addClass("unmutable");
+	  $("#divHexPrintable div").addClass("unmutable");
+	}
+	for (i = ctx["data"][0]; i < ctx["data"][1]; i++) {
+	  $("#divHexBytes" + i).removeClass("unmutable");
+	  $("#divHexPrintable" + i).removeClass("unmutable");
+	}
+      } else if (ctx["action"] == "mutable") {
+	if (initMutable == 0) {
+	  initMutable = 1;
+	  $("#divHexBytes div").not(".unmutable").addClass("mutable");
+	  $("#divHexPrintable div").not(".unmutable").addClass("mutable");
+	}
+	for (i = ctx["data"][0]; i < ctx["data"][1]; i++) {
+	  $("#divHexBytes" + i).removeClass("mutable");
+	  $("#divHexPrintable" + i).removeClass("mutable");
+	}
+      } else if (ctx["action"] == "expect") {
+	$("#divExpect").html(ctx["data"]);
+	$("#nav-relation .context-loading").addClass("d-none");
+      }
+    });
   }
 }
 
