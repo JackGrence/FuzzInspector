@@ -633,7 +633,11 @@ class BitmapReceiver (threading.Thread):
                     # record lonely addr to show different path
                     if len(self.data['bitmap'][hex(addr)]['fuzzers']) != fuzzer_cnt:
                         lonely += 1
-                result.append([hit, total, lonely, hex(func)])
+                data = [hit, total, lonely, hex(func)]
+                if hit == 0 or total == 0:
+                    BitmapReceiver.log_warning(f'Weird stats data: {data}')
+                else:
+                    result.append(data)
         cov = sorted(result, key=lambda x: x[0] / x[1])
         fuzzer_diff = sorted(result, key=lambda x: x[2] / x[0], reverse=True)
         return {'cov': cov, 'fuzzer_diff': fuzzer_diff}
