@@ -89,6 +89,7 @@
 		<div class="nav nav-tabs" id="nav-tab" role="tablist" select="CPUState">
 		  <a class="nav-link active" id="nav-cpustate-tab" data-toggle="tab" href="#nav-cpustate" role="tab" aria-controls="nav-cpustate" aria-selected="true">CPUState</a>
 		  <a class="nav-link" id="nav-relation-tab" data-toggle="tab" href="#nav-relation" role="tab" aria-controls="nav-relation" aria-selected="false">Relationship</a>
+		  <a class="nav-link" id="nav-funccov-tab" data-toggle="tab" href="#nav-funccov" role="tab" aria-controls="nav-funccov" aria-selected="false">FuncCov</a>
 		</div>
 	      </nav>
 	      <div class="tab-content" id="nav-tabContent">
@@ -120,6 +121,25 @@
 		      </div>
 		      <div class="row">
 			<div class="col px-1" id="divExpect">
+			</div>
+		      </div>
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<div class="tab-pane fade" id="nav-funccov" role="tabpanel" aria-labelledby="nav-funccov-tab">
+		  <div class="context-container mt-3">
+		    <div class="context container">
+		      <div class="row">
+			<div class="col-6" id="divFuncCov">
+			  FuncCov
+			</div>
+			<div class="col-6" id="divFuzzerDiff">
+			  FuzzerDiff
 			</div>
 		      </div>
 		    </div>

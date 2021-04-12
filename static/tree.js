@@ -21,12 +21,35 @@ function execute() {
     $("#nav-cpustate .context-loading").removeClass("d-none");
     // call CPUState API
     $.getJSON("/cpustate", requestData);
-  } else {
+  } else if ($("#nav-tab").attr("select") == "Relationship") {
     // display loading block
     $("#nav-relation .context-loading").removeClass("d-none");
     // call relationship API
     $.getJSON("/relationship", requestData);
+  } else if ($("#nav-tab").attr("select") == "FuncCov") {
+    // display loading block
+    $("#nav-funccov .context-loading").removeClass("d-none");
+    $.getJSON("/funccov", requestData, function (data) {
+      $("#nav-funccov .context-loading").addClass("d-none");
+      // return [hit, total, lonely, addr]
+      // show FuncCov
+      $("#divFuncCov").html(data["cov"].map(function (stats) {
+	return stats2link(stats[0], stats[1], stats[3]);
+      }));
+      // show FuzzerDiff
+      $("#divFuzzerDiff").html(data["fuzzer_diff"].map(function (stats) {
+	return stats2link(stats[2], stats[0], stats[3]);
+      }));
+    });
   }
+}
+
+function stats2link(a, b, addr) {
+  let result = addr;
+  result += " " + a + "/" + b;
+  result = "<a href=\"" + "/?address=" + addr + "\">" + result;
+  result += "</a><br>";
+  return result;
 }
 
 function prepareConstraint() {
