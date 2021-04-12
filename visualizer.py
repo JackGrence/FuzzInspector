@@ -615,7 +615,7 @@ class BitmapReceiver (threading.Thread):
         result = []
         for name in self.bin_info.binaries:
             # skip if we are not interested
-            if not list(filter(lambda x: x in name, context)):
+            if context and not list(filter(lambda x: x in name, context)):
                 continue
             # generate the coverage information in every hitted function
             hitted_func = self.bin_info.binaries[name].hitted_func
