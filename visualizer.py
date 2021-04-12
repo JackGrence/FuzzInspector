@@ -603,10 +603,40 @@ class BitmapReceiver (threading.Thread):
             cnt += 1
             self.queue.task_done()
 
-    def print(self, addr):
-        print('--------------------')
-        addr = struct.unpack('<Q', addr)[0]
-        print(hex(addr))
+    def funccov(self, context):
+        '''
+        hitted_func = {
+            func_addr: {
+                addr1: True,
+                addr2: True
+            }
+        }
+        '''
+        result = []
+        for name in self.bin_info.binaries:
+            # skip if we are not interested
+            if not list(filter(lambda x: x in name, context)):
+                continue
+            # generate the coverage information in every hitted function
+            hitted_func = self.bin_info.binaries[name].hitted_func
+            for func, addrs in hitted_func.items():
+                fuzzer_cnt = 0
+                total = len(addrs)
+                hit, lonely = 0, 0
+                for addr in addrs:
+                    if hex(addr) not in self.data['bitmap']:
+                        continue
+                    # record fuzzer_cnt, write here to avoid basic block bug
+                    if fuzzer_cnt == 0:
+                        fuzzer_cnt = len(self.data['bitmap'][hex(addr)]['fuzzers'])
+                    hit += 1
+                    # record lonely addr to show different path
+                    if len(self.data['bitmap'][hex(addr)]['fuzzers']) != fuzzer_cnt:
+                        lonely += 1
+                result.append([hit, total, lonely, hex(func)])
+        cov = sorted(result, key=lambda x: x[0] / x[1])
+        fuzzer_diff = sorted(result, key=lambda x: x[2] / x[0], reverse=True)
+        return {'cov': cov, 'fuzzer_diff': fuzzer_diff}
 
 
 class BinaryInfo:
@@ -681,14 +711,35 @@ class BlockParser:
         print(f'start analyze {self.elf}...')
         self.r2.cmd('aaa')
         self.bits = json.loads(self.r2.cmd('iIj'))['bits']
+        self.hitted_func = {}
+        self.func_cache = {}
 
     def get_basic_block_func_dot(self, addr):
         return self.r2.cmd(f'agfd @{addr}')
 
     def update(self, addr):
+        # analysis function if r2 forgot it
         result = self.r2.cmd(f'pdbj @{addr}')
         if not result:
             self.r2.cmd(f'af @{addr}')
+        # skip record if we already do it
+        if self.addr_r2_to_ql(addr) in self.func_cache:
+            return
+        # record the hitted function
+        result = self.r2.cmdj(f'afbj @{addr}')
+        if not result:
+            msg = f'Invalid function address {self.elf} - {hex(addr)}'
+            msg += f'- {hex(self.addr_r2_to_ql(addr))}'
+            BitmapReceiver.log_warning(msg)
+            return
+        key = self.addr_r2_to_ql(result[0]['addr'])
+        if key not in self.hitted_func:
+            value = {}
+            for op in result:
+                offset = self.addr_r2_to_ql(op['addr'])
+                value[offset] = True
+            self.hitted_func[key] = value
+        self.func_cache = self.hitted_func[key]
 
     def get_func_block(self, addr):
         # {'jump': 29153, 'fail': 28838, 'opaddr': 28688, 'addr': 28688,
