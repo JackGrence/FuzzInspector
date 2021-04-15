@@ -183,12 +183,12 @@ function showRelationship(data) {
 	// init
 	$("#divExpect").html("");
 	initMutable = 0;
-	initUmutable = 0;
+	initUnmutable = 0;
 	// seed
 	seed2hexdump(ctx["data"]);
       } else if (ctx["action"] == "unmutable") {
-	if (initUmutable == 0) {
-	  initUnmtable = 1;
+	if (initUnmutable == 0) {
+	  initUnmutable = 1;
 	  $("#divHexBytes div").addClass("unmutable");
 	  $("#divHexPrintable div").addClass("unmutable");
 	}
