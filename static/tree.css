@@ -109,6 +109,9 @@
 .cur-path {
   animation: shake 1s;
   animation-iteration-count: infinite;
+  border-left:2px #000000 solid;
+  border-right:2px #000000 solid;
+  border-radius:10px
 }
 
 * {
