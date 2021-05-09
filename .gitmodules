@@ -1,0 +1,3 @@
+[submodule "AFLPlusPlus"]
+	path = AFLPlusPlus
+	url = https://github.com/JackGrence/AFLPlusPlus-FuzzInspector.git
