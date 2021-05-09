@@ -603,7 +603,7 @@ class BitmapReceiver (threading.Thread):
             cnt += 1
             self.queue.task_done()
 
-    def funccov(self, context):
+    def blockcov(self, context):
         '''
         hitted_func = {
             func_addr: {

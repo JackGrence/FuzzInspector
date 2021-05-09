@@ -26,14 +26,14 @@ function execute() {
     $("#nav-relation .context-loading").removeClass("d-none");
     // call relationship API
     $.getJSON("/relationship", requestData);
-  } else if ($("#nav-tab").attr("select") == "FuncCov") {
+  } else if ($("#nav-tab").attr("select") == "BlockCov") {
     // display loading block
-    $("#nav-funccov .context-loading").removeClass("d-none");
-    $.getJSON("/funccov", requestData, function (data) {
-      $("#nav-funccov .context-loading").addClass("d-none");
+    $("#nav-blockcov .context-loading").removeClass("d-none");
+    $.getJSON("/blockcov", requestData, function (data) {
+      $("#nav-blockcov .context-loading").addClass("d-none");
       // return [hit, total, lonely, addr]
-      // show FuncCov
-      $("#divFuncCov").html(data["cov"].map(function (stats) {
+      // show BlockCov
+      $("#divBlockCov").html(data["cov"].map(function (stats) {
 	return stats2link(stats[0], stats[1], stats[3]);
       }));
       // show FuzzerDiff

@@ -167,8 +167,8 @@ def constraint():
     bitmap.queue.put(worker)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')
 
-@app.route("/funccov")
-def funccov():
+@app.route("/blockcov")
+def blockcov():
     context = request.args.get('context', '').strip()
     context = [] if not context else context.split(' ')
-    return bitmap.funccov(context)
+    return bitmap.blockcov(context)
