@@ -1,7 +1,7 @@
 import sys
 import os
 import unicornafl
-from visualizer import CPUStateHelper
+from visualizer import VisualizeHelper
 
 # Make sure Qiling uses our patched unicorn instead of it's own,
 # second so without instrumentation!
@@ -16,6 +16,8 @@ def ql_bitmap(ql, address, size):
 def start_afl(_ql: Qiling):
     # now emulate the EXE
     def place_input_callback(uc, inp, _, data):
+        if _ql.relation:
+            inp = VisualizeHelper.relationship(_ql, inp)
         env_var = ("SCRIPT_NAME=").encode()
         env_vars = env_var + inp[:0x1000 - 1] + b"\x00"
         _ql.mem.write(_ql.target_addr, env_vars)
@@ -64,7 +66,7 @@ def ignore_check_session(ql):
 def visualizer_hook(ql):
     # mem(type_len_addr):
     print('visualizer_afl:')
-    print(CPUStateHelper.html(ql))
+    print(VisualizeHelper.cpustate(ql))
     ql.mem.show_mapinfo()
     print('VISEND')
     sys.stdout.flush()
@@ -99,8 +101,8 @@ env = {i.split('=', 1)[0]: i.split('=', 1)[1] for i in env.split('\n')[:-1]}
 
 
 # sandbox to emulate the EXE
-def my_sandbox(path, rootfs, input_file,
-               trace=False, debug_level=1, hook=None, context=[]):
+def my_sandbox(path, rootfs, input_file, trace=False,
+               debug_level=1, hook=None, context=[], relation=False):
     env['SCRIPT_NAME'] = env['SCRIPT_NAME'].ljust(0x1000, '\x00')
     ql_arg = {'env': env,
               'verbose': debug_level}
@@ -113,6 +115,7 @@ def my_sandbox(path, rootfs, input_file,
     if debug_level >= 5:
         ql.hook_block(ql_hook_block_disasm)
     ql.trace = trace
+    ql.relation = relation
 
     ql.input_file = input_file
 
@@ -128,7 +131,7 @@ def my_sandbox(path, rootfs, input_file,
 
 
 if __name__ == "__main__":
-    # ./ql.py input [debug level] [trace] [hook address] [reg/mem...]
+    # ./ql.py input [debug level] [trace/relation] [hook address] [reg/mem...]
     if len(sys.argv) <= 1:
         raise ValueError("No input file provided.")
     else:
@@ -137,6 +140,7 @@ if __name__ == "__main__":
             arg['debug_level'] = int(sys.argv[2])
         if len(sys.argv) > 3:
             arg['trace'] = 'trace' in sys.argv[3]
+            arg['relation'] = 'relation' in sys.argv[3]
         if len(sys.argv) > 4:
             arg['hook'] = int(sys.argv[4], 0)
         if len(sys.argv) > 5:

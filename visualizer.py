@@ -11,14 +11,165 @@ import json
 import queue
 import hexdump
 import signal
+import glob
+from datetime import datetime
 
 
-class CPUStateHelper:
+class VisualizeHelper:
+
+    STATUS_CHILD = 0
+    STATUS_PARENT = 1
+
+    @classmethod
+    def print_visresult(cls, data):
+        visoutput = f'visualizer_afl:{data}VISEND'
+        print(visoutput)
+        sys.stdout.flush()
+
+    @classmethod
+    def init_from_afl_output(cls, bitmap_receiver):
+        afl_output_dir = os.getenv('AFL_OUTPUT_DIR')
+        for fn in glob.glob(f'{afl_output_dir}/visualizer/*'):
+            worker = BinaryWorker(BinaryWorker.ACTION_BITMAP,
+                                  seeds=[fn])
+            bitmap_receiver.queue.put(worker)
+
+    '''
+    child return STATUS_CHILD, mutated data
+    parent return STATUS_PARENT, child's stdout
+    '''
+    @classmethod
+    def run_target(cls, data):
+        # TODO: stdin or do it in ql.py
+        # fork stuff...
+        r, w = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.dup2(w, 1)
+            os.close(r)
+            os.close(w)
+            return cls.STATUS_CHILD, data
+        else:
+            os.close(w)
+            result = b''
+            buf = os.read(r, 1024)
+            while len(buf) != 0:
+                result += buf
+                buf = os.read(r, 1024)
+        return cls.STATUS_PARENT, result
+
+    '''
+    Find unmutable bytes by colorize
+    '''
+    @classmethod
+    def find_unmutable(cls, inp):
+        unmutable = []
+        que = [[inp, 0, len(inp)]]
+        while True:
+            if not que:
+                break
+            data, l, r = que.pop()
+            new_data = data[:l] + os.urandom(r - l) + data[r:]
+            # run target
+            status, result = cls.run_target(new_data)
+            if status == cls.STATUS_CHILD:
+                # let child return to ql.py
+                return status, result
+            if not cls.parse_visresult(result):
+                if r - l <= 1:
+                    unmutable.append(l)
+                    continue
+                # miss, find the way
+                m = (l + r) // 2
+                que.append([data, l, m])
+                que.append([data, m, r])
+            else:
+                # clear highlight
+                scope = {'action': 'unmutable', 'data': [l, r]}
+                VisualizeHelper.print_visresult(f'{scope}')
+        return status, sorted(unmutable)
+
+    '''
+    Find mutable bytes
+    '''
+    @classmethod
+    def find_mutable(cls, inp, expect, unmutable=[]):
+        mutable = []
+        que = [[inp, 0, len(inp)]]
+        while True:
+            if not que:
+                break
+            data, l, r = que.pop()
+            new_data = data[:l] + os.urandom(r - l) + data[r:]
+            new_data = list(new_data)
+            for i in unmutable:
+                new_data[i] = data[i]
+            new_data = bytes(new_data)
+            # run target
+            status, result = cls.run_target(new_data)
+            if status == cls.STATUS_CHILD:
+                # let child return to ql.py
+                return status, result
+            result = ''.join(cls.parse_visresult(result))
+            if result != expect:
+                if r - l <= 1:
+                    mutable.append(l)
+                    continue
+                # miss, find the way
+                m = (l + r) // 2
+                que.append([data, l, m])
+                que.append([data, m, r])
+            else:
+                # clear highlight
+                scope = {'action': 'mutable', 'data': [l, r]}
+                VisualizeHelper.print_visresult(f'{scope}')
+        return status, sorted(mutable)
+
+    '''
+    visresult:
+        {action: 'input', data: bytes array}
+        {action: 'unmutable', data: [start, end]}
+        {action: 'mutable', data: [start, end]}
+        {action: 'expect', data: string}
+    '''
+    @classmethod
+    def relationship(cls, ql, inp):
+        input_data = {'action': 'input', 'data': list(inp)}
+        VisualizeHelper.print_visresult(f'{input_data}')
+        # colorize
+        status, result = cls.find_unmutable(inp)
+        if status == cls.STATUS_CHILD:
+            # let child return to ql.py
+            return result
+        unmutable = result
+        # interesting bytes
+        status, result = cls.run_target(inp)
+        if status == cls.STATUS_CHILD:
+            return result
+        expect = ''.join(cls.parse_visresult(result))
+        status, result = cls.find_mutable(inp, expect, unmutable=unmutable)
+        if status == cls.STATUS_CHILD:
+            return result
+        mutable = result
+
+        expect_data = {'action': 'expect', 'data': expect}
+        VisualizeHelper.print_visresult(f'{expect_data}')
+
+        sys.exit(0)
+        # output
+        return inp
+
+    @classmethod
+    def parse_visresult(self, output):
+        output = output.split(b'visualizer_afl:')
+        output = filter(lambda x: b'VISEND' in x, output)
+        output = list(map(lambda x: x.split(b'VISEND')[0].decode(), output))
+        return output
 
     # str_5_0x1234, byte_6_0x1234, u64_8_0x1234, u32_4_0x1234, u16_2_0x1234
     # TODO: bootstrap table
     @classmethod
-    def html(cls, ql):
+    def cpustate(cls, ql):
         result = ''
         try:
             for ctx in ql.viscontext:
@@ -106,7 +257,7 @@ class CPUStateHelper:
     def hex(cls, ql, length, addr):
         result = f'{hex(addr)}: '
         result += ql.mem.read(addr, length).hex()
-        result += '<br>'
+        result += '<br>\n'
         return result
 
     @classmethod
@@ -117,16 +268,16 @@ class CPUStateHelper:
         item_size = unpack // 8
         for i in range(length):
             value = unpack_helper[unpack](ql.mem.read(addr, item_size))
-            result += f'{hex(addr)} = {hex(value)}<br>'
+            result += f'{hex(addr)} = {hex(value)}<br>\n'
             addr += item_size
         return result
 
     @classmethod
     def byte(cls, ql, length, addr):
-        result = f'{hex(addr)}:<br>'
+        result = f'{hex(addr)}:<br>\n'
         result += hexdump.hexdump(ql.mem.read(addr, length), result='return')
-        result += '<br>'
-        result = result.replace('\n', '<br>')
+        result += '<br>\n'
+        result = result.replace('\n', '<br>\n')
         return result
 
     @classmethod
@@ -134,14 +285,14 @@ class CPUStateHelper:
         result = ''
         for i in range(length):
             s = ql.mem.string(addr)
-            result += f'{hex(addr)}: {s}<br>'
+            result += f'{hex(addr)}: {s}<br>\n'
             addr += len(s) + 1
         return result
 
     @classmethod
     def reg(cls, ql, name):
         value = ql.reg.read(name)
-        return f'{name} = {hex(value)}<br>'
+        return f'{name} = {hex(value)}<br>\n'
 
     @classmethod
     def stack(cls, ql):
@@ -151,7 +302,7 @@ class CPUStateHelper:
             name = ql.reg.sp + i * num_bytes
             value = ql.mem.read(name, num_bytes)
             value = ql.unpack(value)
-            result += f'{hex(name)} = {hex(value)}<br>'
+            result += f'{hex(name)} = {hex(value)}<br>\n'
         return result
 
     @classmethod
@@ -170,45 +321,79 @@ class BinaryWorker:
     ACTION_RELATION = 3
     ACTION_CONSTRAINT = 4
 
-    def __init__(self, action, address=0, basicblock=0, seeds=[], context=[]):
+    def __init__(self, action, address=0, basicblock=0, seeds=[], context=[], pid=0):
         self.action = action
         self.address = address
         self.basicblock = basicblock
         self.seeds = seeds
         self.context = context
+        self.pid = pid
 
     def run(self, data, cnt, bin_info):
         if self.action == BinaryWorker.ACTION_BITMAP:
             # new or use old
             data['bitmap'] = self.bitmap(data.get('bitmap', {}), bin_info)
+            data['bitmap_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_CPUSTATE:
             # always new
             data['cpustate'] = self.cpustate(bin_info)
             data['cpustate_cnt'] = cnt
         elif self.action == BinaryWorker.ACTION_RELATION:
             # always new
-            data['relationship'] = self.relationship()
-            data['relationship_cnt'] = cnt
+            self.relationship(data)
         elif self.action == BinaryWorker.ACTION_CONSTRAINT:
             self.constraint(data)
 
     def parse_constraint(self, context):
         '''
-        type_offset_data (hex_5_deadbeef)
-        offset length data (5 4 0xde 0xad 0xbe 0xef)
-        '''
-        datatype, offset, data = context.split('_')
-        offset = int(offset, 0)
-        if datatype == 'hex':
-            data = bytes.fromhex(data)
-        elif datatype == 'str':
-            data = data.encode() + b'\x00'
-        else:
-            data = b'unknown'
+        ,type,endian,offset,overwrite_length,data
+        ex: ,hex,<,0,3,deadbeef
+        type endian offset overwirte_length data_cnt data_length data
+        ex: array X 0 3 1 3 0xde 0xad 0xbe
+        (0xef will ignore now)
 
-        result = f'{offset} {len(data)} '
-        for d in data:
-            result += f'{hex(d)} '
+        ,type,endian,offset,overwrite_length,data
+        ex: ,range32,>,0,4,0x1,0x10000000
+        type endian offset overwirte_length data_cnt data_length data
+        ex: range big 0 4 2 4 0x01 0x00 0x00 0x00 4 0x00 0x00 0x00 0x10
+        (forbid insert mode)
+        '''
+        # TODO: make string can be insert, support variant length
+        delm = context[0]
+        datatype, endian, offset, write_len, *data = context[1:].split(delm)
+        offset = int(offset, 0)
+        write_len = int(write_len, 0)
+        bit2pack = {8: 'B', 16: 'H', 32: 'I', 64: 'Q'}
+        # Note: we pack integer by network order between fuzzer and visualizer
+        # the endian variable is for seed, will process in fuzzer
+        if datatype[:5] == 'range':
+            bit_len = int(datatype[5:])
+            assert len(data) == 2, 'range length error'
+            packstr = f'!{bit2pack[bit_len]}'
+            data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
+        elif datatype[:3] == 'int':
+            bit_len = int(datatype[3:])
+            packstr = f'!{bit2pack[bit_len]}'
+            data = map(lambda x: struct.pack(packstr, int(x, 0)), data)
+        elif datatype[:3] == 'str':
+            data = map(lambda x: x.encode() + b'\x00', data)
+        elif datatype[:3] == 'hex':
+            data = map(lambda x: bytes.fromhex(x), data)
+        data = list(data)
+
+        # type endian offset overwirte_length data_cnt data_length data
+        # ex: range big 4 0 2 4 0x01 0x00 0x00 0x00 4 0x00 0x00 0x00 0x10
+        # range -> 0, array -> 1
+        # little endian -> 0, big endian -> 1, byte -> 2
+        result = '0' if datatype[:5] == 'range' else '1'
+        result += ' 0' if endian == '<' else ' 1' if endian == '>' else ' 2'
+        result += f' {offset} {write_len} {len(data)}'
+        for data_bytes in data:
+            # TODO: variant data length, keep same and padding null now
+            data_bytes = data_bytes.ljust(write_len, b'\x00')[:write_len]
+            result += f' {len(data_bytes)}'
+            for d in data_bytes:
+                result += f' {hex(d)}'
         return result
 
     def constraint(self, bitmapdata):
@@ -216,40 +401,60 @@ class BinaryWorker:
         total [constraint...] (2 [constraint1] [constraint2])
         '''
         # context to afl++
-        result = f'{len(self.context)} '
-        for ctx in self.context:
-            data = self.parse_constraint(ctx)
-            result += f'{data} '
+        try:
+            result = f'{len(self.context)} '
+            for ctx in self.context:
+                data = self.parse_constraint(ctx)
+                result += f'{data} '
+        except Exception as e:
+            # invalid format, skip and log
+            BitmapReceiver.log_error(f'Invalid constraint {self.context} {str(e)}')
+            return
         bitmapdata['constraint'] = result
+        BitmapReceiver.log_info(f'Parsed constraint {result}')
         # SIGUSR2 inform afl++
+        # keep lookup afl-fuzz pid to prevent arbitrary kill
         pids = subprocess.check_output(['pidof', 'afl-fuzz']).split(b' ')
         for pid in map(int, pids):
-            os.kill(pid, signal.SIGUSR2)
+            if pid == self.pid:
+                msg = f'Inform fuzzer {pid} to set constraint'
+                BitmapReceiver.log_info(msg)
+                os.kill(pid, signal.SIGUSR2)
 
     def bitmap(self, result, bin_info):
         '''
         bitmap = {
           STR_ADDR1: {
             'hit': N
-            'seed': []
+            'seeds': set()
+            'fuzzers': {pid: name}
           }
         }
         '''
         filename = self.seeds[0]
+        BitmapReceiver.log_info(f'Analysis seed {filename}')
         # python ql.py inputfile debug_level trace
         addr_list = subprocess.run(['python', 'ql.py', filename, '0', 'trace'], stdout=subprocess.PIPE)
-        addr_list = self.parse_visresult(addr_list.stdout)
+        addr_list = VisualizeHelper.parse_visresult(addr_list.stdout)
 
         # last one is mapinfo
         bin_info.init(addr_list[-1])
         for addr in addr_list[:-1]:
-            addr = hex(int(addr, 0))
+            try:
+                addr = hex(int(addr, 0))
+            except ValueError:
+                print(addr)
+                continue
             if addr not in result:
-                result[addr] = {'hit': 0, 'seed': []}
+                result[addr] = {'hit': 0, 'seeds': set(), 'fuzzers': {}}
                 bin_info.update(int(addr, 0))
             result[addr]['hit'] += 1
-            if filename not in result[addr]['seed']:
-                result[addr]['seed'].append(filename)
+            if filename not in result[addr]['seeds']:
+                result[addr]['seeds'].add(filename)
+            if self.pid not in result[addr]['fuzzers']:
+                fuzzer_name = os.path.abspath(f'{filename}/../../../')
+                fuzzer_name = os.path.basename(fuzzer_name)
+                result[addr]['fuzzers'][self.pid] = fuzzer_name
 
         return result
 
@@ -260,92 +465,33 @@ class BinaryWorker:
 
         # do cpustate
         filename = self.seeds[0]
+        BitmapReceiver.log_info(f'Get CPUState {self.context} by seed {filename}')
         result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
                                  str(self.address), *self.context],
                                 stdout=subprocess.PIPE)
-        result = self.parse_visresult(result.stdout)
+        result = VisualizeHelper.parse_visresult(result.stdout)
 
         return result if result else ''
 
-    '''
-    Return unmutable offsets
-    '''
-    def colorize(self, buf, l, r):
-        old_buf = buf[:]
-        buf = buf[:l] + os.urandom(r - l) + buf[r:]
-        filename = '/tmp/vis.cur'
-        with open(filename, 'wb') as f:
-            f.write(buf)
-        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 str(self.address), *self.context],
-                                stdout=subprocess.PIPE)
-        if self.parse_visresult(result.stdout):
-            # still hit address, mutable
-            return []
-        else:
-            # path change, find unmutable part
-            if r - l <= 1:
-                return [l]
-            m = (l + r) // 2
-            result = self.colorize(old_buf, l, m)
-            result += self.colorize(old_buf, m, r)
-            return result
+    def relationship(self, data):
+        data['relationship'] = []
 
-    def exec_context(self, buf):
-        filename = '/tmp/vis.cur'
-        with open(filename, 'wb') as f:
-            f.write(buf)
-        result = subprocess.run(['python', 'ql.py', filename, '0', 'no',
-                                 str(self.address), *self.context],
-                                stdout=subprocess.PIPE)
-        return self.parse_visresult(result.stdout)
-
-    def exec_context_rand(self, buf, l, r, unmutable=[]):
-        old_buf = list(buf[:])
-        buf = buf[:l] + os.urandom(r - l) + buf[r:]
-        buf = list(buf)
-        for i in unmutable:
-            buf[i] = old_buf[i]
-        buf = bytes(buf)
-        return self.exec_context(buf)
-
-    '''
-    Return interesting(context changed) offsets
-    '''
-    def interesting(self, buf, l, r, expect, unmutable=[]):
-        result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
-        while not result:
-            result = self.exec_context_rand(buf, l, r, unmutable=unmutable)
-
-        if ''.join(result) == ''.join(expect):
-            # context still the same, return []
-            return []
-        else:
-            # context changed, find interesting part
-            if r - l <= 1:
-                return [l]
-            m = (l + r) // 2
-            result = self.interesting(buf, l, m, expect, unmutable=unmutable)
-            result += self.interesting(buf, m, r, expect, unmutable=unmutable)
-            return result
-
-    def relationship(self):
         filename = self.seeds[0]
-        with open(filename, 'rb') as f:
-            buf = f.read()
-        # colorize
-        unmutable = self.colorize(buf, 0, len(buf))
-        # interesting bytes
-        expect = self.exec_context(buf)
-        offset = self.interesting(buf, 0, len(buf), expect, unmutable=unmutable)
-        # output
-        result = f'{hex(self.address)}<br>'
-        result += f'{unmutable}<br>'
-        result += f'{offset}<br>'
-        result += f'{"".join(expect)}<br>'
-        result += hexdump.hexdump(buf, result='return').replace('\n', '<br>')
-        result += '<br>'
-        return result
+        BitmapReceiver.log_info(f'Get Relationship {self.context} by seed {filename}')
+        result = subprocess.Popen(['python', 'ql.py', filename, '0', 'relation',
+                                   str(self.address), *self.context],
+                                  stdout=subprocess.PIPE)
+        output = b''
+        while True:
+            buf = result.stdout.read(32)
+            if len(buf) == 0:
+                break
+            output += buf
+            visresult = VisualizeHelper.parse_visresult(output)
+            for i in visresult:
+                data['relationship'].append(eval(i))
+                data['relationship_cnt'] += 1
+            output = output.split(b'VISEND')[-1]
 
     def parse_visresult(self, output):
         output = output.split(b'visualizer_afl:')
@@ -354,26 +500,147 @@ class BinaryWorker:
         return output
 
 
+'''
+This is a non-thread safe class
+'''
 class BitmapReceiver (threading.Thread):
+
+    log_list = []
+    log_cnt = 0
+
+    @classmethod
+    def log(cls, msg, msgtype='INFO'):
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = f'[{msgtype}] {now} {msg}'
+        cls.log_list.append(now)
+        cls.log_cnt += 1
+        if len(cls.log_list) > 200:
+            # save to file
+            with open('fuzzinspector.log', 'a') as f:
+                f.write('\n'.join(cls.log_list[:100]))
+            for _ in range(100):
+                cls.log_list.pop(0)
+
+    @classmethod
+    def log_info(cls, msg):
+        cls.log(msg, 'INFO')
+
+    @classmethod
+    def log_warning(cls, msg):
+        cls.log(msg, 'WARN')
+
+    @classmethod
+    def log_error(cls, msg):
+        cls.log(msg, 'ERROR')
 
     def __init__(self):
         threading.Thread.__init__(self)
         self.queue = queue.Queue()
-        self.data = {'bitmap': {}}
+        self.data = {'bitmap': {},
+                     'relationship': [],
+                     'bitmap_cnt': 0,
+                     'cpustate_cnt': 0,
+                     'relationship_cnt': 0}
         self.bin_info = BinaryInfo()
 
+    def hit_info(self, blocks):
+        result = {}
+        result['addrs'] = {}
+        # if block is empty, give it all
+        if not blocks:
+            blocks = self.data['bitmap'].keys()
+        # prepare hit, seeds
+        for block in blocks:
+            # set default value
+            result['addrs'][block] = {'hit': 0, 'fuzzers': {}}
+            cur_block = result['addrs'][block]
+            # set value if exist
+            if block in self.data['bitmap']:
+                cur_block['hit'] = self.data['bitmap'][block]['hit']
+                cur_block['fuzzers'] = self.data['bitmap'][block]['fuzzers']
+                # set seeds for choosing path
+                # only set at first hitted block
+                if 'seeds' not in result:
+                    result['seeds'] = sorted(self.data['bitmap'][block]['seeds'])
+        return result
+
+    def to_json(self, blocks, bitmap_cnt, cpustate_cnt,
+                relationship_cnt, log_cnt):
+        # init
+        result = dict(self.data)
+        # bitmap
+        if self.data['bitmap_cnt'] == bitmap_cnt:
+            result['bitmap'] = None
+        else:
+            result['bitmap'] = self.hit_info(blocks)
+        # cpustate
+        if self.data['cpustate_cnt'] == cpustate_cnt:
+            result['cpustate'] = None
+        # relationship
+        if self.data['relationship_cnt'] == relationship_cnt:
+            result['relationship'] = []
+        else:
+            cur_cnt = result['relationship_cnt']
+            result['relationship'] = result['relationship'][relationship_cnt - cur_cnt:]
+        # log
+        if BitmapReceiver.log_cnt == log_cnt:
+            result['log'], result['log_cnt'] = None, log_cnt
+        else:
+            result['log'], result['log_cnt'] = self.log2json(log_cnt)
+        return json.dumps(result)
+
+    def log2json(self, log_cnt):
+        cur_cnt = BitmapReceiver.log_cnt
+        if log_cnt > cur_cnt:
+            return BitmapReceiver.log_list[:], cur_cnt
+        return BitmapReceiver.log_list[log_cnt - cur_cnt:], cur_cnt
+
     def run(self):
-        cnt = 0
+        cnt = 1
         while True:
             worker = self.queue.get()
             worker.run(self.data, cnt, self.bin_info)
             cnt += 1
             self.queue.task_done()
 
-    def print(self, addr):
-        print('--------------------')
-        addr = struct.unpack('<Q', addr)[0]
-        print(hex(addr))
+    def blockcov(self, context):
+        '''
+        hitted_func = {
+            func_addr: {
+                addr1: True,
+                addr2: True
+            }
+        }
+        '''
+        result = []
+        for name in self.bin_info.binaries:
+            # skip if we are not interested
+            if context and not list(filter(lambda x: x in name, context)):
+                continue
+            # generate the coverage information in every hitted function
+            hitted_func = self.bin_info.binaries[name].hitted_func
+            for func, addrs in hitted_func.items():
+                fuzzer_cnt = 0
+                total = len(addrs)
+                hit, lonely = 0, 0
+                for addr in addrs:
+                    if hex(addr) not in self.data['bitmap']:
+                        continue
+                    # record fuzzer_cnt, write here to avoid basic block bug
+                    if fuzzer_cnt == 0:
+                        fuzzer_cnt = len(self.data['bitmap'][hex(addr)]['fuzzers'])
+                    hit += 1
+                    # record lonely addr to show different path
+                    if len(self.data['bitmap'][hex(addr)]['fuzzers']) != fuzzer_cnt:
+                        lonely += 1
+                data = [hit, total, lonely, hex(func)]
+                if hit == 0 or total == 0:
+                    BitmapReceiver.log_warning(f'Weird stats data: {data}')
+                else:
+                    result.append(data)
+        cov = sorted(result, key=lambda x: x[0] / x[1])
+        fuzzer_diff = sorted(result, key=lambda x: x[2] / x[0], reverse=True)
+        return {'cov': cov, 'fuzzer_diff': fuzzer_diff}
 
 
 class BinaryInfo:
@@ -394,7 +661,7 @@ class BinaryInfo:
                 addr >= self.last_info[0] and addr < self.last_info[1]):
             result_info = self.last_info
         else:
-            result_info = CPUStateHelper.map_search(addr, self.map_info)
+            result_info = VisualizeHelper.map_search(addr, self.map_info)
 
         self.last_info = result_info
 
@@ -435,7 +702,9 @@ class BinaryInfo:
 
     def get_basic_block_func_dot(self, addr):
         bin_addr, binary = self.addr2bin(addr)
-        return json.dumps(binary.get_basic_block_func_dot(bin_addr))
+        result = [binary.addr_r2_to_ql(0)]
+        result.append(json.dumps(binary.get_basic_block_func_dot(bin_addr)))
+        return result
 
 
 class BlockParser:
@@ -446,14 +715,35 @@ class BlockParser:
         print(f'start analyze {self.elf}...')
         self.r2.cmd('aaa')
         self.bits = json.loads(self.r2.cmd('iIj'))['bits']
+        self.hitted_func = {}
+        self.func_cache = {}
 
     def get_basic_block_func_dot(self, addr):
         return self.r2.cmd(f'agfd @{addr}')
 
     def update(self, addr):
+        # analysis function if r2 forgot it
         result = self.r2.cmd(f'pdbj @{addr}')
         if not result:
             self.r2.cmd(f'af @{addr}')
+        # skip record if we already do it
+        if self.addr_r2_to_ql(addr) in self.func_cache:
+            return
+        # record the hitted function
+        result = self.r2.cmdj(f'afbj @{addr}')
+        if not result:
+            msg = f'Invalid function address {self.elf} - {hex(addr)}'
+            msg += f'- {hex(self.addr_r2_to_ql(addr))}'
+            BitmapReceiver.log_warning(msg)
+            return
+        key = self.addr_r2_to_ql(result[0]['addr'])
+        if key not in self.hitted_func:
+            value = {}
+            for op in result:
+                offset = self.addr_r2_to_ql(op['addr'])
+                value[offset] = True
+            self.hitted_func[key] = value
+        self.func_cache = self.hitted_func[key]
 
     def get_func_block(self, addr):
         # {'jump': 29153, 'fail': 28838, 'opaddr': 28688, 'addr': 28688,

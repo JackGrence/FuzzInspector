@@ -13,17 +13,33 @@
 
 <body>
 <nav class="navbar navbar-light bg-light fixed-top">
-  <a class="navbar-brand">Navbar</a>
-  <form class="form-inline">
-    <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
-    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-  </form>
+  <div class="navbar navbar-light bg-light border border-success rounded text-success text-center">
+    FuzzInspector
+  </div>
+  <div>
+    <form class="form-inline">
+      <div class="dropdown mr-sm-2">
+	<button class="btn bg-white border dropdown-toggle" type="button" id="dropdownCurSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+	  Display Seed
+	</button>
+	<div id="dropdownCurSeedMenu" class="dropdown-menu" aria-labelledby="dropdownCurSeedToggle">
+	  <a class="dropdown-item" href="#">Action</a>
+	  <a class="dropdown-item" href="#">Another action</a>
+	  <a class="dropdown-item" href="#">Something else here</a>
+	</div>
+      </div>
+      <input class="form-control mr-sm-2" type="search" name="address" placeholder="Address" aria-label="Address" value="{{ address }}">
+      <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+    </form>
+  </div>
 </nav>
-<div class="overlap">
-<div id="mynetwork"></div>
-<div id="hitCntDiv" class="text-center">
-  <div class="hit-box">1000</div>
-</div>
+<div class="overlap w-100">
+  <div id="mynetwork"></div>
+  <div id="hitCntDiv" class="text-center overlap-div">
+    <div class="hit-box"></div>
+  </div>
+  <div id="fuzzerColorDiv" class="text-right p-2 overlap-div"></div>
+  <div id="logDiv" class="log-box text-left p-2 overlap-div"></div>
 </div>
 <div class="modal fade" id="visualContent" tabindex="-1" role="dialog" aria-labelledby="visualContentTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
@@ -37,9 +53,9 @@
       <div class="modal-body">
 	<div class="container">
 	  <div class="row">
-	    <div class="col">
+	    <div class="col-6">
 	      <div class="dropdown w-100">
-		<button class="btn btn-secondary dropdown-toggle w-100" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		<button class="btn bg-white border dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownDisasToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 		  Dropdown button
 		</button>
 		<div id="dropdownDisasMenu" class="dropdown-menu" aria-labelledby="dropdownDisasToggle">
@@ -49,6 +65,23 @@
 		</div>
 	      </div>
 	    </div>
+	    <div class="col-6">
+	      <div class="dropdown w-100">
+		<button class="btn bg-white border dropdown-toggle w-100 text-truncate overflow-hidden" type="button" id="dropdownSeedToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		  Dropdown button
+		</button>
+		<div id="dropdownSeedMenu" class="dropdown-menu" aria-labelledby="dropdownSeedToggle">
+		  <a class="dropdown-item" href="#">Action</a>
+		  <a class="dropdown-item" href="#">Another action</a>
+		  <a class="dropdown-item" href="#">Something else here</a>
+		</div>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="row mt-3">
+	    <div class="col">
+	      <div id="modalLogDiv" class="log-box"></div>
+	    </div>
 	  </div>
 	  <div class="row mt-3">
 	    <div class="col">
@@ -56,6 +89,7 @@
 		<div class="nav nav-tabs" id="nav-tab" role="tablist" select="CPUState">
 		  <a class="nav-link active" id="nav-cpustate-tab" data-toggle="tab" href="#nav-cpustate" role="tab" aria-controls="nav-cpustate" aria-selected="true">CPUState</a>
 		  <a class="nav-link" id="nav-relation-tab" data-toggle="tab" href="#nav-relation" role="tab" aria-controls="nav-relation" aria-selected="false">Relationship</a>
+		  <a class="nav-link" id="nav-blockcov-tab" data-toggle="tab" href="#nav-blockcov" role="tab" aria-controls="nav-blockcov" aria-selected="false">BlockCov</a>
 		</div>
 	      </nav>
 	      <div class="tab-content" id="nav-tabContent">
@@ -73,8 +107,41 @@
 		</div>
 		<div class="tab-pane fade" id="nav-relation" role="tabpanel" aria-labelledby="nav-relation-tab">
 		  <div class="context-container mt-3">
-		    <div id="divRelation" class="context mt-3">
-		      Relationship
+		    <div id="divRelation" class="context mt-3 container">
+		      <div class="row">
+			<div id="divHexOffset" class="col-auto px-1">
+			  offset
+			</div>
+			<div id="divHexBytes" class="col-auto px-1">
+			  bytes
+			</div>
+			<div id="divHexPrintable" class="col-auto px-1">
+			  printable
+			</div>
+		      </div>
+		      <div class="row">
+			<div class="col px-1" id="divExpect">
+			</div>
+		      </div>
+		    </div>
+		    <div class="context-loading d-none">
+		      <div class="spinner-border loading" role="status">
+			<span class="sr-only">Loading...</span>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+		<div class="tab-pane fade" id="nav-blockcov" role="tabpanel" aria-labelledby="nav-blockcov-tab">
+		  <div class="context-container mt-3">
+		    <div class="context container">
+		      <div class="row">
+			<div class="col-6" id="divBlockCov">
+			  BlockCov
+			</div>
+			<div class="col-6" id="divFuzzerDiff">
+			  FuzzerDiff
+			</div>
+		      </div>
 		    </div>
 		    <div class="context-loading d-none">
 		      <div class="spinner-border loading" role="status">
@@ -100,10 +167,28 @@
       </div>
       <div class="modal-footer">
 	<div class="container">
-	  <div class="input-group">
-	    <input id="inputConstraint" type="text" class="form-control" placeholder="str_offset_value" aria-label="" aria-describedby="basic-addon1">
-	    <div class="input-group-prepend">
-	      <button id="btnConstraint" class="btn btn-outline-secondary" type="button" onclick="prepareConstraint()">Constraint</button>
+	  <div class="row">
+	    <div class="col text-center text-secondary">
+	      |,type,endian,offset,overwrite-length,data
+	    </div>
+	    <div class="w-100"></div>
+	    <div class="col">
+	      <div class="input-group">
+		<div class="dropdown mr-2">
+		  <button class="btn bg-white border dropdown-toggle text-truncate overflow-hidden" type="button" id="dropdownCurFuzzerToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		    Display Seed
+		  </button>
+		  <div id="dropdownCurFuzzerMenu" class="dropdown-menu" aria-labelledby="dropdownCurFuzzerToggle">
+		    <a class="dropdown-item" href="#">Action</a>
+		    <a class="dropdown-item" href="#">Another action</a>
+		    <a class="dropdown-item" href="#">Something else here</a>
+		  </div>
+		</div>
+		<input id="inputConstraint" type="text" class="form-control" placeholder="|,hex,x,0,3,deadbeef|,range8,<,0,1,100,200" aria-label="" aria-describedby="basic-addon1" value="|,hex,x,0,4,deadbeef|,range8,<,4,1,100,200">
+		<div class="input-group-prepend">
+		  <button id="btnConstraint" class="btn btn-outline-secondary" type="button" onclick="prepareConstraint()">Constraint</button>
+		</div>
+	      </div>
 	    </div>
 	  </div>
 	</div>
@@ -115,26 +200,38 @@
     var DOTstring = {{ dot | safe }};
     DOTstring = DOTstring.replaceAll('\\l', '\n');
     DOTstring = DOTstring.replaceAll('\\"', '');
-    var result = DOT2CFG(DOTstring)
+    var addrFix = {{ addr_fix }};
+    var result = DOT2CFG(DOTstring, addrFix)
     var network = result[0];
     var nodes = result[1].nodes;
-    let cpustateCnt = -1;
-    let relationshipCnt = -1;
+    let bitmapCnt = 0;
+    let cpustateCnt = 0;
+    let relationshipCnt = 0;
+    let logCnt = 0;
 
     setInterval(function(){
       // get hit count by address
       blocks = nodes.map(function (i){return i['id']}).join('_');
-      $.post("/bitmap/get", {"blocks": blocks}, function(data, status){
-	// show hit count
-	showBitmap(data["bitmap"], nodes, network);
-	if (cpustateCnt != data["cpustate_cnt"]) {
-	  showCPUState(data["cpustate"]);
-	  cpustateCnt = data["cpustate_cnt"];
-	}
-	if (relationshipCnt != data["relationship_cnt"]) {
-	  showRelationship(data["relationship"]);
-	  relationshipCnt = data["relationship_cnt"];
-	}
+      seed = $("#dropdownCurSeedToggle").text();
+      payload = {"blocks": blocks,
+		 "bitmapCnt": bitmapCnt,
+		 "cpustateCnt": cpustateCnt,
+		 "relationshipCnt": relationshipCnt,
+		 "logCnt": logCnt};
+      $.post("/bitmap/get", payload, function(data, status){
+	hitboxAnimate(nodes, network);
+	// show hit info
+	showBitmap(data["bitmap"], nodes, network, seed);
+	bitmapCnt = data["bitmap_cnt"]
+	// show CPUState
+	showCPUState(data["cpustate"]);
+	cpustateCnt = data["cpustate_cnt"];
+	// show Relationship
+	showRelationship(data["relationship"]);
+	relationshipCnt = data["relationship_cnt"];
+	// show log
+	showLog(data["log"]);
+	logCnt = data["log_cnt"];
       });
     }, 1000);
   </script>
