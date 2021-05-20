@@ -1,0 +1,61 @@
+# FuzzInspector
+
+FuzzInspector is a interactive visualization tool for fuzz testing.
+![image](./img/intro.png)
+
+## Installation
+
+FuzzInspector use AFLPlusPlus, Qiling framework, and Radare2 to implement the interactive and visualization feature. Please make sure these tool are installed correctly.
+
+We recommend to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/stable/install.html) to install the FuzzInspector. You can change the virtualenv name for youself. For example we use `fuzzinspector`.
+
+```bash
+mkvirtualenv -ppython3 fuzzinspector
+# Install Radare2
+sudo apt install radare2
+# Install AFLPlusPlus
+cd AFLPlusPlus
+sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
+make distrib
+cd ..
+# Install Qiling
+cd qiling
+pip install .
+cd ..
+# Install FuzzInspector dependencies
+pip install -r requirements.txt
+```
+
+## Usage
+
+FuzzInspector provide the web interface. So specifying the port to web server (for example: 7788).
+
+```bash
+./mk_fuzzing_dir.sh 7788
+cd fuzzinspector_7788
+cp ql-example.py ql.py
+# then modify the ql.py and make sure it can run your target
+```
+
+FuzzInspector can handle multiple fuzzer and visulize the fuzzing path. So you can prepare the multiple fuzzer to fuzz your target (now AFL++ only, but you can use different mode).
+
+`cd fuzzer_name` to prepare fuzzer enviroment:
+
+```bash
+cd fuzzer_name
+# modify the fuzz.sh for your target
+# ex: Add -L for MOpt mode
+# prepare the enviroment for your target
+# ex: Copy target file (rootfs or binary) to here
+```
+
+You can copy `fuzzer_name` folder to create another fuzzing enviroment.
+Note: The folder name will be used to identify the fuzzer by FuzzInspector. So giving a clearly name is helpful.
+
+## Contributing
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
