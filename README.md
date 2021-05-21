@@ -37,7 +37,7 @@ cp ql-example.py ql.py
 # then modify the ql.py and make sure it can run your target
 ```
 
-FuzzInspector can handle multiple fuzzer and visulize the fuzzing path. So you can prepare the multiple fuzzer to fuzz your target (now AFL++ only, but you can use different mode).
+FuzzInspector can handle multiple fuzzer and visualize the fuzzing path. So you can prepare the multiple fuzzer to fuzz your target (now AFL++ only, but you can use different mode).
 
 `cd fuzzer_name` to prepare fuzzer enviroment:
 
