@@ -5,7 +5,7 @@ FuzzInspector is a interactive visualization tool for fuzz testing.
 
 ## Installation
 
-FuzzInspector use AFLPlusPlus, Qiling framework, and Radare2 to implement the interactive and visualization feature. Please make sure these tool are installed correctly.
+FuzzInspector use AFLplusplus, Qiling framework, and Radare2 to implement the interactive and visualization feature. Please make sure these tool are installed correctly.
 
 We recommend to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/stable/install.html) to install the FuzzInspector. You can change the virtualenv name for youself. For example we use `fuzzinspector`.
 
@@ -13,8 +13,8 @@ We recommend to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io
 mkvirtualenv -ppython3 fuzzinspector
 # Install Radare2
 sudo apt install radare2
-# Install AFLPlusPlus
-cd AFLPlusPlus
+# Install AFLplusplus
+cd AFLplusplus
 sudo apt install build-essential libtool-bin python3-dev automake flex bison libglib2.0-dev libpixman-1-dev clang python3-setuptools llvm
 make distrib
 cd ..
