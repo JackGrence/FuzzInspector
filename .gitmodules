@@ -1,6 +1,6 @@
-[submodule "AFLPlusPlus"]
-	path = AFLPlusPlus
-	url = https://github.com/JackGrence/AFLPlusPlus.git
 [submodule "qiling"]
 	path = qiling
 	url = https://github.com/qilingframework/qiling.git
+[submodule "AFLplusplus"]
+	path = AFLplusplus
+	url = https://github.com/JackGrence/AFLplusplus.git
