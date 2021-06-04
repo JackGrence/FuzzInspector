@@ -542,6 +542,7 @@ class BitmapReceiver (threading.Thread):
                      'cpustate_cnt': 0,
                      'relationship_cnt': 0}
         self.bin_info = BinaryInfo()
+        self.stats = {}
 
     def hit_info(self, blocks):
         result = {}
@@ -587,6 +588,11 @@ class BitmapReceiver (threading.Thread):
             result['log'], result['log_cnt'] = None, log_cnt
         else:
             result['log'], result['log_cnt'] = self.log2json(log_cnt)
+        # bottleneck alert
+        result['bottleneck'] = []
+        for pid, stats in self.stats.items():
+            if not stats.is_alive():
+                result['bottleneck'].append(pid)
         return json.dumps(result)
 
     def log2json(self, log_cnt):
@@ -641,6 +647,13 @@ class BitmapReceiver (threading.Thread):
         cov = sorted(result, key=lambda x: x[0] / x[1])
         fuzzer_diff = sorted(result, key=lambda x: x[2] / x[0], reverse=True)
         return {'cov': cov, 'fuzzer_diff': fuzzer_diff}
+
+    def analysis_seed(self, pid):
+        # start stats worker or record it
+        if pid not in self.stats:
+            self.stats[pid] = StatsWorker(pid)
+            self.stats[pid].start()
+        self.stats[pid].update()
 
 
 class BinaryInfo:
@@ -798,6 +811,55 @@ class BlockParser:
         # r2 = ql - (0 - baddr + base)
         return addr - self.addr_r2_to_ql(0)
 
+
+class StatsWorker(threading.Thread):
+
+    def __init__(self, pid, skip=5000, interval=300):
+        threading.Thread.__init__(self)
+        self.skip = skip
+        self.interval = interval
+        self.pid = pid
+        self.timestamps = []
+
+    def update(self):
+        self.timestamps.append(time.time())
+
+    def run(self):
+        time.sleep(self.skip)
+        while not self.meet_bottleneck():
+            time.sleep(self.interval)
+        # alert we meet the bottleneck
+        BitmapReceiver.log_info(f'Find the bottleneck. Fuzzer pid: {self.pid}')
+
+    def meet_bottleneck(self):
+        '''
+        This algorithm was inspired by my girlfriend.
+        There is no basis for that, but it works!
+        '''
+        cnt = len(self.timestamps)
+        if cnt <= 1:
+            return
+        # TODO: set start time to the time of setting constraint
+        start_t = self.timestamps[0]
+        cur_t = time.time()
+        unit = (cur_t - start_t) / 1000
+        # calc avg in every unit time
+        avg = 0
+        seed_cnt = 0
+        timestamp_idx = 0
+        t = start_t + unit
+        while t <= cur_t:
+            # calc count of seed at time t
+            for timestamp in self.timestamps[timestamp_idx:cnt]:
+                if timestamp <= t:
+                    timestamp_idx += 1
+                else:
+                    break
+            # timestamp_idx == count of seed
+            avg += timestamp_idx
+            t += unit
+        avg /= 1000
+        return avg >= cnt * 0.95
 
 if __name__ == '__main__':
     block_info = BlockParser('/usr/bin/readelf')
