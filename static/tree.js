@@ -153,6 +153,39 @@ function showBitmap(data, nodes, network, defaultSeed) {
   }, defaultFuzzer, function (x) {});
 }
 
+function generateConstraint(e) {
+  let target = $(e["target"]);
+  let len = $("#divHexBytes div").length;
+  let id = target.attr("id");
+  // skip non interesting data
+  if (!target.hasClass("unmutable") && !target.hasClass("mutable")) {
+    return;
+  }
+  // get continuously bytes
+  id = parseInt(id.replace("divHexBytes", ""));
+  let resultBytes = [];
+  let resultIds = [];
+  for (i = id; i >= 0; i--) {
+    let obj = $("#divHexBytes" + i);
+    if (!obj.hasClass("unmutable") && !obj.hasClass("mutable")) {
+      break;
+    }
+    resultBytes.unshift(obj.text());
+    resultIds.unshift(i);
+  }
+  for (i = id + 1; i < len; i++) {
+    let obj = $("#divHexBytes" + i);
+    if (!obj.hasClass("unmutable") && !obj.hasClass("mutable")) {
+      break;
+    }
+    resultBytes.push(obj.text());
+    resultIds.push(i);
+  }
+  // generate constraint
+  let result = "|,hex,x," + resultIds[0] + "," + resultIds.length + "," + resultBytes.join("");
+  $("#inputConstraint").val(result + $("#inputConstraint").val());
+}
+
 function seed2hexdump(seed) {
   let ind = 0;
   let bytesInd = 0;
@@ -182,6 +215,7 @@ function seed2hexdump(seed) {
   $("#divHexOffset").html(offset.join("<br>"));
   $("#divHexBytes").html(bytes.join("<br>"));
   $("#divHexPrintable").html(printable.join("<br>"));
+  $("#divHexBytes div").click(generateConstraint);
 }
 
 let initMutable;
