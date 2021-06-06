@@ -1,3 +1,12 @@
+function showBottleneck(pids) {
+  pids.map(function (pid) {
+    let e = $("#fuzzer" + pid + " font");
+    if (e.html().substr(0, 4) !== "[!] ") {
+      e.html("[!] " + e.html());
+    }
+  });
+}
+
 function showLog(log) {
   if (!log) { return; }
   let curLog = $("#logDiv").html().split("<br>");
@@ -107,10 +116,12 @@ function showBitmap(data, nodes, network, defaultSeed) {
 	key = stat["fuzzers"][pid] + "[" + pid + "]";
 	colors[key] = rgb.slice();
 	// prepare fuzzerColorHtml
+	fuzzerColorHtml += "<div id=\"fuzzer" + pid + "\">";
 	fuzzerColorHtml += "<font style=\"color: ";
 	fuzzerColorHtml += "rgb(" + colors[key].join(",") + ");\">";
 	fuzzerColorHtml += key;
-	fuzzerColorHtml += " ★</font><br>";
+	fuzzerColorHtml += " ★</font>";
+	fuzzerColorHtml += "</div>";
 	// calc next color
 	act = actions[actIdx];
 	idx = Math.abs(act) - 1;
