@@ -11,6 +11,9 @@ We recommend to use [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io
 
 ```bash
 mkvirtualenv -ppython3 fuzzinspector
+# Pull submodules
+git submodule init
+git submodule update
 # Install Radare2
 sudo apt install radare2
 # Install AFLplusplus
