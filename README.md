@@ -55,6 +55,35 @@ cd fuzzer_name
 You can copy `fuzzer_name` folder to create another fuzzing enviroment.
 Note: The folder name will be used to identify the fuzzer by FuzzInspector. So giving a clearly name is helpful.
 
+## Example
+
+We provide a example to fuzz libexif.
+
+Please execute:
+
+```
+./example/libexif.sh 7777
+```
+
+Then start the visualizer:
+
+```
+cd fuzzinspector_7777
+workon fuzzinspector
+./visrun.sh
+```
+
+Open the another terminal:
+
+```
+cd fuzzinspector_7777/fuzzer_name
+./fuzz.sh
+```
+
+Visit `http://localhost:7777/?address=0x55555556322f` or other address you interested.
+
+Note: We recommend you wait 5 hours or above before visiting the web page. Because there are so many seeds that need to be processed by qiling (the count of seeds are dependent on target). Let's hope someone speed up that.
+
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
