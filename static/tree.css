@@ -150,8 +150,10 @@
 
 .unmutable {
   background-color: lightpink;
+  cursor: pointer;
 }
 
 .mutable {
   background-color: lightblue;
+  cursor: pointer;
 }

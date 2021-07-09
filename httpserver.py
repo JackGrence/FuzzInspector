@@ -126,6 +126,7 @@ def seed():
     worker = BinaryWorker(BinaryWorker.ACTION_BITMAP,
                           seeds=[filename], pid=pid)
     bitmap.queue.put(worker)
+    bitmap.analysis_seed(pid)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')
 
 
@@ -164,7 +165,7 @@ def constraint():
     worker = BinaryWorker(BinaryWorker.ACTION_CONSTRAINT,
                           context=context,
                           pid=pid)
-    bitmap.queue.put(worker)
+    worker.constraint(bitmap.data)
     return Response(json.dumps({"status": 0}),  mimetype='application/json')
 
 @app.route("/blockcov")
